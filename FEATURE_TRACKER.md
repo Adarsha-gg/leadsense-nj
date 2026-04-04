@@ -1,0 +1,32 @@
+# Feature Tracker
+
+- [ ] F01 Upload road video for analysis
+- [ ] F02 Analyze camera snapshot frame
+- [ ] F03 Optional GPS CSV geotagging
+- [ ] F04 Detector backend switch (Mock / YOLO)
+- [ ] F05 Confidence threshold control
+- [ ] F06 Frame sampling control
+- [ ] F07 Duplicate detection suppression
+- [ ] F08 Max-frame processing budget
+- [ ] F09 Bounding-box hazard overlays
+- [ ] F10 Hazard-class taxonomy
+- [ ] F11 Severity scoring
+- [ ] F12 Composite risk scoring
+- [ ] F13 Traffic context weighting
+- [ ] F14 Weather context weighting
+- [ ] F15 School-zone context weighting
+- [ ] F16 Equity context weighting
+- [ ] F17 Priority queue generation
+- [ ] F18 Budget-constrained prioritization
+- [ ] F19 Top-K segment selection
+- [ ] F20 What-if repair simulation
+- [ ] F21 Detection summary metrics
+- [ ] F22 Hazard distribution chart
+- [ ] F23 Risk timeline chart
+- [ ] F24 Interactive map view
+- [ ] F25 Class filter
+- [ ] F26 Minimum risk filter
+- [ ] F27 CSV export (detections)
+- [ ] F28 CSV export (priority queue)
+- [ ] F29 Markdown report export
+- [ ] F30 Session run history
