@@ -19,7 +19,7 @@
 - [x] F17 Priority queue generation
 - [x] F18 Budget-constrained prioritization
 - [x] F19 Top-K segment selection
-- [ ] F20 What-if repair simulation
+- [x] F20 What-if repair simulation
 - [ ] F21 Detection summary metrics
 - [ ] F22 Hazard distribution chart
 - [ ] F23 Risk timeline chart
