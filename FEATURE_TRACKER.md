@@ -20,7 +20,7 @@
 - [x] F18 Budget-constrained prioritization
 - [x] F19 Top-K segment selection
 - [x] F20 What-if repair simulation
-- [ ] F21 Detection summary metrics
+- [x] F21 Detection summary metrics
 - [ ] F22 Hazard distribution chart
 - [ ] F23 Risk timeline chart
 - [ ] F24 Interactive map view
