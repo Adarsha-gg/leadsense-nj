@@ -21,7 +21,7 @@
 - [x] F19 Top-K segment selection
 - [x] F20 What-if repair simulation
 - [x] F21 Detection summary metrics
-- [ ] F22 Hazard distribution chart
+- [x] F22 Hazard distribution chart
 - [ ] F23 Risk timeline chart
 - [ ] F24 Interactive map view
 - [ ] F25 Class filter
