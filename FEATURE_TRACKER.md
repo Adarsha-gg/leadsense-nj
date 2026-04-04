@@ -8,7 +8,7 @@
 - [x] F06 Frame sampling control
 - [x] F07 Duplicate detection suppression
 - [x] F08 Max-frame processing budget
-- [ ] F09 Bounding-box hazard overlays
+- [x] F09 Bounding-box hazard overlays
 - [ ] F10 Hazard-class taxonomy
 - [ ] F11 Severity scoring
 - [ ] F12 Composite risk scoring
