@@ -24,7 +24,7 @@
 - [x] F22 Hazard distribution chart
 - [x] F23 Risk timeline chart
 - [x] F24 Interactive map view
-- [ ] F25 Class filter
+- [x] F25 Class filter
 - [ ] F26 Minimum risk filter
 - [ ] F27 CSV export (detections)
 - [ ] F28 CSV export (priority queue)
