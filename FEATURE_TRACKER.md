@@ -11,7 +11,7 @@
 - [x] F09 Bounding-box hazard overlays
 - [x] F10 Hazard-class taxonomy
 - [x] F11 Severity scoring
-- [ ] F12 Composite risk scoring
+- [x] F12 Composite risk scoring
 - [ ] F13 Traffic context weighting
 - [ ] F14 Weather context weighting
 - [ ] F15 School-zone context weighting
