@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.streamlit/
+artifacts/
+reports/
+*.mp4
+*.avi
+*.mov
+*.mkv
