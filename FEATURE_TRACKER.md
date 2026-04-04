@@ -4,7 +4,7 @@
 - [x] F02 Analyze camera snapshot frame
 - [x] F03 Optional GPS CSV geotagging
 - [x] F04 Detector backend switch (Mock / YOLO)
-- [ ] F05 Confidence threshold control
+- [x] F05 Confidence threshold control
 - [ ] F06 Frame sampling control
 - [ ] F07 Duplicate detection suppression
 - [ ] F08 Max-frame processing budget
