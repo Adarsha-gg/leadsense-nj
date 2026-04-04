@@ -29,4 +29,4 @@
 - [x] F27 CSV export (detections)
 - [x] F28 CSV export (priority queue)
 - [x] F29 Markdown report export
-- [ ] F30 Session run history
+- [x] F30 Session run history
