@@ -23,7 +23,7 @@
 - [x] F21 Detection summary metrics
 - [x] F22 Hazard distribution chart
 - [x] F23 Risk timeline chart
-- [ ] F24 Interactive map view
+- [x] F24 Interactive map view
 - [ ] F25 Class filter
 - [ ] F26 Minimum risk filter
 - [ ] F27 CSV export (detections)
