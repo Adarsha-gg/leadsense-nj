@@ -14,7 +14,7 @@
 - [x] F12 Composite risk scoring
 - [x] F13 Traffic context weighting
 - [x] F14 Weather context weighting
-- [ ] F15 School-zone context weighting
+- [x] F15 School-zone context weighting
 - [ ] F16 Equity context weighting
 - [ ] F17 Priority queue generation
 - [ ] F18 Budget-constrained prioritization
