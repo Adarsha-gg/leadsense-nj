@@ -6,10 +6,11 @@ Road damage is a safety, cost, and equity issue. Inspections are often manual an
 
 ## 2) Solution
 
-RoadPulse AI turns ordinary road video into an actionable repair plan.
+RoadPulse AI turns ordinary road video into an actionable repair plan with New Jersey context presets.
 
 - Detects road hazards from video frames
 - Scores severity and overall risk
+- Adjusts risk by county/scenario context
 - Maps high-risk segments
 - Prioritizes repairs under a real budget constraint
 
@@ -21,7 +22,9 @@ Most projects stop at detection. We go further:
 
 - Detection + risk scoring + prioritization
 - Includes traffic, weather, school-zone, and equity context
+- Includes NJ scenario presets and county-specific adjustment
 - Simulates expected risk drop if top segments are repaired
+- Adds business-facing KPIs (hours saved, proxy ROI, CO2 proxy)
 
 So this is not only “what is broken,” but “what to fix first and why.”
 
@@ -32,6 +35,7 @@ So this is not only “what is broken,” but “what to fix first and why.”
 3. Display risk dashboard and map.
 4. Show top repair queue within a chosen budget.
 5. Run what-if simulation to compare baseline vs post-repair risk.
+6. Show judge-friendly intervention recommendations and KPI cards.
 
 ## 5) Impact
 
@@ -43,4 +47,3 @@ So this is not only “what is broken,” but “what to fix first and why.”
 ## 6) Close
 
 RoadPulse AI is practical AI for infrastructure: measurable, visual, and decision-ready.
-

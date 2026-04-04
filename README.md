@@ -1,7 +1,7 @@
-# RoadPulse AI
+# RoadPulse AI (NJBDA Edition)
 
 RoadPulse AI is a computer-vision application for road hazard detection and repair prioritization.
-It processes road videos, detects damage, scores severity/risk, and outputs a budget-constrained repair queue.
+This NJBDA edition adds New Jersey scenario presets, county context adjustment, synthetic demo asset generation, and judge-friendly KPI outputs.
 
 ## Quick Start
 
@@ -12,51 +12,47 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Data Inputs
+## Demo Assets
+
+Generate synthetic NJ demo data:
+
+```bash
+python generate_demo_assets.py
+```
+
+This creates:
+- `data/samples/synthetic_nj_drive.mp4`
+- `data/samples/synthetic_nj_drive_gps.csv`
+
+The app can also generate demo assets directly from the sidebar.
+
+## Input Data
 
 - Road video (`.mp4`, `.avi`, `.mov`, `.mkv`)
 - Optional GPS CSV with columns: `timestamp`, `lat`, `lon`
+- Optional templates in:
+  - `data/templates/nj_gps_template.csv`
+  - `data/templates/nj_context_profiles.csv`
+  - `data/templates/nj_county_priority_weights.csv`
 
-## 30 Implemented Features
+## Feature Set
 
-1. Upload road video for analysis
-2. Analyze camera snapshot frame
-3. Optional GPS CSV geotagging
-4. Detector backend switch (Mock / YOLO)
-5. Confidence threshold control
-6. Frame sampling control
-7. Duplicate detection suppression
-8. Max-frame processing budget
-9. Bounding-box hazard overlays
-10. Hazard-class taxonomy
-11. Severity scoring
-12. Composite risk scoring
-13. Traffic context weighting
-14. Weather context weighting
-15. School-zone context weighting
-16. Equity context weighting
-17. Priority queue generation
-18. Budget-constrained prioritization
-19. Top-K segment selection
-20. What-if repair simulation
-21. Detection summary metrics
-22. Hazard distribution chart
-23. Risk timeline chart
-24. Interactive map view
-25. Class filter
-26. Minimum risk filter
-27. CSV export (detections)
-28. CSV export (priority queue)
-29. Markdown report export
-30. Session run history
+45 implemented features are tracked in `FEATURE_TRACKER.md`.
 
 ## Optional Model Upgrade
 
-To use a trained YOLO model:
+To use trained YOLO weights:
 
 ```bash
 pip install ultralytics
+python train_yolo.py --data path/to/data.yaml --model yolov8n.pt --epochs 50
 ```
 
-Then select `yolo` backend in the UI and provide a `.pt` model path.
+Then switch backend to `yolo` and provide model path in the app.
+
+## Validation
+
+```bash
+python -m pytest -q
+```
 

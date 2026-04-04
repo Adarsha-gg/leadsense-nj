@@ -30,3 +30,18 @@
 - [x] F28 CSV export (priority queue)
 - [x] F29 Markdown report export
 - [x] F30 Session run history
+- [x] F31 NJ scenario presets
+- [x] F32 County risk adjustment
+- [x] F33 Synthetic demo video generation
+- [x] F34 Synthetic GPS generation
+- [x] F35 Scenario notes display
+- [x] F36 Risk band breakdown chart
+- [x] F37 Confidence diagnostics chart
+- [x] F38 Segment leaderboard table
+- [x] F39 Class-by-risk heatmap
+- [x] F40 Operational KPI estimator
+- [x] F41 CO2 reduction proxy
+- [x] F42 Intervention recommendation cards
+- [x] F43 NJBDA talking points panel
+- [x] F44 Assumptions/model transparency panel
+- [x] F45 Template data quick reference

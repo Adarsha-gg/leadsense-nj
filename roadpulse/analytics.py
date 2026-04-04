@@ -34,3 +34,56 @@ def risk_timeline(df: pd.DataFrame) -> pd.DataFrame:
     out = tmp.groupby("bucket_min", as_index=False)["risk_score"].mean()
     return out.rename(columns={"risk_score": "avg_risk"})
 
+
+def risk_band_breakdown(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["risk_band", "count"])
+    tmp = df.copy()
+    tmp["risk_band"] = pd.cut(
+        tmp["risk_score"],
+        bins=[-0.1, 30, 60, 80, 100.0],
+        labels=["Low", "Moderate", "High", "Critical"],
+    )
+    out = tmp.groupby("risk_band", as_index=False, observed=False).size()
+    return out.rename(columns={"size": "count"})
+
+
+def confidence_buckets(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["confidence_bucket", "count"])
+    tmp = df.copy()
+    tmp["confidence_bucket"] = pd.cut(
+        tmp["confidence"],
+        bins=[0.0, 0.4, 0.6, 0.8, 1.0],
+        labels=["0-0.4", "0.4-0.6", "0.6-0.8", "0.8-1.0"],
+        include_lowest=True,
+    )
+    out = tmp.groupby("confidence_bucket", as_index=False, observed=False).size()
+    return out.rename(columns={"size": "count"})
+
+
+def segment_summary(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["segment_id", "issue_count", "avg_risk", "max_severity"])
+    tmp = df.copy()
+    if "segment_id" not in tmp.columns:
+        tmp["segment_id"] = (tmp["timestamp_s"] // 20).astype(int).map(lambda x: f"seg_time_{x:03d}")
+    out = (
+        tmp.groupby("segment_id", as_index=False)
+        .agg(issue_count=("hazard_class", "count"), avg_risk=("risk_score", "mean"), max_severity=("severity", "max"))
+        .sort_values(["avg_risk", "max_severity"], ascending=False)
+    )
+    return out.round(2)
+
+
+def class_risk_heatmap(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["hazard_class", "risk_band", "count"])
+    tmp = df.copy()
+    tmp["risk_band"] = pd.cut(
+        tmp["risk_score"],
+        bins=[-0.1, 30, 60, 80, 100.0],
+        labels=["Low", "Moderate", "High", "Critical"],
+    )
+    out = tmp.groupby(["hazard_class", "risk_band"], as_index=False, observed=False).size()
+    return out.rename(columns={"size": "count"})
