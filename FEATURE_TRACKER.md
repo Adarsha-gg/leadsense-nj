@@ -12,7 +12,7 @@
 - [x] F10 Hazard-class taxonomy
 - [x] F11 Severity scoring
 - [x] F12 Composite risk scoring
-- [ ] F13 Traffic context weighting
+- [x] F13 Traffic context weighting
 - [ ] F14 Weather context weighting
 - [ ] F15 School-zone context weighting
 - [ ] F16 Equity context weighting
