@@ -17,7 +17,7 @@
 - [x] F15 School-zone context weighting
 - [x] F16 Equity context weighting
 - [x] F17 Priority queue generation
-- [ ] F18 Budget-constrained prioritization
+- [x] F18 Budget-constrained prioritization
 - [ ] F19 Top-K segment selection
 - [ ] F20 What-if repair simulation
 - [ ] F21 Detection summary metrics
