@@ -27,6 +27,6 @@
 - [x] F25 Class filter
 - [x] F26 Minimum risk filter
 - [x] F27 CSV export (detections)
-- [ ] F28 CSV export (priority queue)
+- [x] F28 CSV export (priority queue)
 - [ ] F29 Markdown report export
 - [ ] F30 Session run history
