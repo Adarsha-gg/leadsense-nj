@@ -15,7 +15,7 @@
 - [x] F13 Traffic context weighting
 - [x] F14 Weather context weighting
 - [x] F15 School-zone context weighting
-- [ ] F16 Equity context weighting
+- [x] F16 Equity context weighting
 - [ ] F17 Priority queue generation
 - [ ] F18 Budget-constrained prioritization
 - [ ] F19 Top-K segment selection
