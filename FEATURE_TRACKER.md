@@ -3,7 +3,7 @@
 - [x] F01 Upload road video for analysis
 - [x] F02 Analyze camera snapshot frame
 - [x] F03 Optional GPS CSV geotagging
-- [ ] F04 Detector backend switch (Mock / YOLO)
+- [x] F04 Detector backend switch (Mock / YOLO)
 - [ ] F05 Confidence threshold control
 - [ ] F06 Frame sampling control
 - [ ] F07 Duplicate detection suppression
