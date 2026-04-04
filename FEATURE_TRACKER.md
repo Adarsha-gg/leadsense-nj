@@ -25,7 +25,7 @@
 - [x] F23 Risk timeline chart
 - [x] F24 Interactive map view
 - [x] F25 Class filter
-- [ ] F26 Minimum risk filter
+- [x] F26 Minimum risk filter
 - [ ] F27 CSV export (detections)
 - [ ] F28 CSV export (priority queue)
 - [ ] F29 Markdown report export
