@@ -16,7 +16,7 @@
 - [x] F14 Weather context weighting
 - [x] F15 School-zone context weighting
 - [x] F16 Equity context weighting
-- [ ] F17 Priority queue generation
+- [x] F17 Priority queue generation
 - [ ] F18 Budget-constrained prioritization
 - [ ] F19 Top-K segment selection
 - [ ] F20 What-if repair simulation
