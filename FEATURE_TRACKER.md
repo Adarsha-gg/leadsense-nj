@@ -1,6 +1,6 @@
 # Feature Tracker
 
-- [ ] F01 Upload road video for analysis
+- [x] F01 Upload road video for analysis
 - [ ] F02 Analyze camera snapshot frame
 - [ ] F03 Optional GPS CSV geotagging
 - [ ] F04 Detector backend switch (Mock / YOLO)
