@@ -5,7 +5,7 @@
 - [x] F03 Optional GPS CSV geotagging
 - [x] F04 Detector backend switch (Mock / YOLO)
 - [x] F05 Confidence threshold control
-- [ ] F06 Frame sampling control
+- [x] F06 Frame sampling control
 - [ ] F07 Duplicate detection suppression
 - [ ] F08 Max-frame processing budget
 - [ ] F09 Bounding-box hazard overlays
