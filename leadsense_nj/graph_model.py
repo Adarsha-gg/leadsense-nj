@@ -9,6 +9,10 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from leadsense_nj.infrastructure import (
+    build_adjacency_from_edge_list,
+    build_county_proxy_edge_list,
+)
 from leadsense_nj.multimodal import FusionRiskModel, build_fusion_feature_table, train_fusion_model
 
 
@@ -47,6 +51,17 @@ def build_knn_adjacency(df: pd.DataFrame, k: int = 3) -> np.ndarray:
     return adj
 
 
+def build_infrastructure_adjacency(
+    df: pd.DataFrame,
+    *,
+    edges_df: pd.DataFrame | None = None,
+) -> np.ndarray:
+    if "geoid" not in df.columns:
+        raise ValueError("Infrastructure adjacency requires 'geoid' column.")
+    edge_frame = edges_df if edges_df is not None else build_county_proxy_edge_list(df)
+    return build_adjacency_from_edge_list(df["geoid"].astype(str), edge_frame)
+
+
 def graph_mean_aggregate(features: np.ndarray, adjacency: np.ndarray, num_layers: int = 2) -> np.ndarray:
     if features.shape[0] != adjacency.shape[0]:
         raise ValueError("features and adjacency must have same number of nodes")
@@ -66,11 +81,19 @@ class GraphEnhancedRiskModel:
     feature_columns: tuple[str, ...]
     knn_k: int
     num_layers: int
+    graph_mode: str
+    infrastructure_edges: pd.DataFrame | None = None
 
     def predict_proba(self, df: pd.DataFrame) -> np.ndarray:
         fused = build_fusion_feature_table(df)
         x = fused.loc[:, self.fusion_model.feature_columns].to_numpy()
-        adj = build_knn_adjacency(df, k=self.knn_k)
+        if self.graph_mode == "infrastructure":
+            adj = build_infrastructure_adjacency(df, edges_df=self.infrastructure_edges)
+            # When stored edges come from a different split, recover with local proxy edges.
+            if float(adj.sum()) <= float(len(df)):
+                adj = build_infrastructure_adjacency(df, edges_df=None)
+        else:
+            adj = build_knn_adjacency(df, k=self.knn_k)
         agg = graph_mean_aggregate(x, adj, num_layers=self.num_layers)
         combined = np.concatenate([x, agg], axis=1)
         combined_df = pd.DataFrame(combined, columns=self.feature_columns, index=df.index)
@@ -85,6 +108,8 @@ def train_graph_enhanced_model(
     label_col: str = "risk_label",
     knn_k: int = 3,
     num_layers: int = 2,
+    graph_mode: str = "knn",
+    infrastructure_edges: pd.DataFrame | None = None,
 ) -> GraphEnhancedRiskModel:
     if label_col not in df.columns:
         raise ValueError(f"Missing label column: {label_col}")
@@ -96,7 +121,13 @@ def train_graph_enhanced_model(
     fused = build_fusion_feature_table(df)
     x = fused.loc[:, fusion_model.feature_columns].to_numpy()
 
-    adjacency = build_knn_adjacency(df, k=knn_k)
+    if graph_mode == "infrastructure":
+        adjacency = build_infrastructure_adjacency(df, edges_df=infrastructure_edges)
+    elif graph_mode == "knn":
+        adjacency = build_knn_adjacency(df, k=knn_k)
+    else:
+        raise ValueError(f"Unsupported graph_mode: {graph_mode}")
+
     x_agg = graph_mean_aggregate(x, adjacency, num_layers=num_layers)
     combined = np.concatenate([x, x_agg], axis=1)
     feature_columns = tuple([f"base_{i}" for i in range(x.shape[1])] + [f"graph_{i}" for i in range(x_agg.shape[1])])
@@ -115,4 +146,6 @@ def train_graph_enhanced_model(
         feature_columns=feature_columns,
         knn_k=knn_k,
         num_layers=num_layers,
+        graph_mode=graph_mode,
+        infrastructure_edges=infrastructure_edges,
     )

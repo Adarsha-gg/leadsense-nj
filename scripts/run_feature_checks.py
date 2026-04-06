@@ -14,6 +14,7 @@ from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.demo import build_demo_snapshot
 from leadsense_nj.explainability import top_feature_drivers
 from leadsense_nj.ingestion import ensure_real_data_cache, validate_acs_block_group_frame, validate_epa_pws_lead_signal_frame
+from leadsense_nj.infrastructure import build_county_proxy_edge_list, load_edge_list, validate_edge_list
 from leadsense_nj.optimization import optimize_replacement_plan, optimize_replacement_plan_ilp
 from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
@@ -248,6 +249,33 @@ def run_feature_10_checks() -> None:
     print(f"EPA PWS rows: {len(pws_df)}")
 
 
+def run_feature_11_checks() -> None:
+    df = with_elevated_risk_label(build_feature_table())
+    edge_path = PROJECT_ROOT / "data" / "processed" / "graph_edges_sample.csv"
+    if edge_path.exists():
+        file_edges = load_edge_list(edge_path)
+        validate_edge_list(file_edges)
+
+    edges = build_county_proxy_edge_list(df, k_within_county=2)
+    validate_edge_list(edges)
+    if edges.empty:
+        raise RuntimeError("F11 failed: infrastructure edge list is empty.")
+
+    report = run_model_research_benchmark(df, n_splits=3, threshold=0.5, random_state=42)
+    if "graph_knn" not in report or "graph_infrastructure" not in report:
+        raise RuntimeError("F11 failed: missing graph variant metrics in benchmark report.")
+    delta = report.get("improvement_graph_infrastructure_over_graph_knn_accuracy")
+    if delta is None:
+        raise RuntimeError("F11 failed: missing infrastructure-vs-knn delta metric.")
+    if not (-1.0 <= float(delta) <= 1.0):
+        raise RuntimeError("F11 failed: invalid infrastructure-vs-knn delta metric.")
+
+    print("F11 checks passed.")
+    print(f"Infrastructure edges: {len(edges)}")
+    print(f"Infra graph acc mean: {report['graph_infrastructure']['accuracy']['mean']:.3f}")
+    print(f"Infra - KNN acc delta: {float(delta):.3f}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
@@ -259,3 +287,4 @@ if __name__ == "__main__":
     run_feature_08_checks()
     run_feature_09_checks()
     run_feature_10_checks()
+    run_feature_11_checks()

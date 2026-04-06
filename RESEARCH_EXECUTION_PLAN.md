@@ -49,11 +49,14 @@ Artifacts:
 
 ### Phase C: Advanced Graph Model
 
-- Replace KNN spatial proxy with infrastructure-informed graph edges.
-- Add real graph ablations:
-  - no-graph
-  - KNN graph
-  - infrastructure graph
+- Completed:
+  - Added infrastructure graph hooks (edge-list load/validate + adjacency builder)
+  - Added graph ablations in benchmark:
+    - no-graph (fusion)
+    - KNN graph
+    - infrastructure graph (proxy edge list fallback)
+- Remaining:
+  - Replace proxy edge list with true NJ DEP/NJGIN service-area or pipe topology edges
 
 ### Phase D: Explainability and Briefing
 

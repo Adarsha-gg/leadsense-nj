@@ -46,6 +46,15 @@ Outputs:
 - `artifacts/research/benchmark_results.json`
 - `artifacts/research/benchmark_results.md`
 
+## Infrastructure Graph Edges (F11)
+
+Builds a proxy infrastructure edge list (county-constrained KNN), used as a hook
+until NJ DEP/NJGIN network edges are wired in.
+
+```bash
+python scripts/build_infrastructure_edges.py --feature-table data/processed/block_group_features_sample.csv --out data/processed/graph_edges_sample.csv
+```
+
 ## Real Data Ingestion (F10)
 
 Fetches real NJ data from:

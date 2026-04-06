@@ -25,6 +25,8 @@ def test_run_model_research_benchmark_has_expected_keys() -> None:
     assert "tabular" in report
     assert "tabular_temporal" in report
     assert "fusion" in report
+    assert "graph_knn" in report
+    assert "graph_infrastructure" in report
     assert "graph" in report
     assert "ablation_accuracy_table" in report
     assert "fold_results" in report

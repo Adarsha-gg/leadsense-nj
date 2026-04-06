@@ -166,3 +166,23 @@
   - `python -m pytest -q` -> `40 passed`
   - `python scripts/fetch_real_data.py --cache-dir data/cache --acs-year 2022 --max-violation-rows 10000` -> wrote cache artifacts
   - `python scripts/run_feature_checks.py` -> `F10 checks passed`
+
+## F11 - Infrastructure Graph Hooks
+
+- Status: `completed`
+- Scope:
+  - Infrastructure edge-list utilities (load, validate, adjacency builder)
+  - Proxy infrastructure edge generator (`county + KNN`) as NJ DEP/NJGIN hook fallback
+  - Graph model support for `graph_mode="infrastructure"` in addition to `knn`
+  - Research benchmark expansion with both graph variants:
+    - `graph_knn`
+    - `graph_infrastructure`
+  - Feature-check integration and sample edge artifact in `data/processed/graph_edges_sample.csv`
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes including F11
+  - `python scripts/run_research_benchmark.py` writes graph-variant metrics
+- Verification:
+  - `python -m pytest -q` -> `43 passed`
+  - `python scripts/run_feature_checks.py` -> `F11 checks passed`
+  - `python scripts/run_research_benchmark.py` -> wrote benchmark artifacts

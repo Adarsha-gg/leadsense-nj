@@ -9,6 +9,7 @@ from sklearn.model_selection import StratifiedKFold
 
 from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.graph_model import train_graph_enhanced_model
+from leadsense_nj.infrastructure import build_county_proxy_edge_list
 from leadsense_nj.metrics import BinaryClassificationMetrics, compute_probabilistic_metrics, historical_signal_prediction
 from leadsense_nj.multimodal import build_fusion_feature_table, train_fusion_model
 from leadsense_nj.target import with_elevated_risk_label
@@ -22,7 +23,8 @@ class FoldResult:
     tabular: BinaryClassificationMetrics
     tabular_temporal: BinaryClassificationMetrics
     fusion: BinaryClassificationMetrics
-    graph: BinaryClassificationMetrics
+    graph_knn: BinaryClassificationMetrics
+    graph_infrastructure: BinaryClassificationMetrics
 
 
 def _resolve_spatial_clusters(df: pd.DataFrame, n_splits: int, random_state: int = 42) -> np.ndarray:
@@ -133,9 +135,27 @@ def run_model_research_benchmark(
         y_fusion_prob = fusion_model.predict_proba(fused_test)
         fusion_metrics = compute_probabilistic_metrics(y_true, y_fusion_prob, threshold=threshold, ece_bins=5)
 
-        graph_model = train_graph_enhanced_model(train_df, label_col="risk_label", knn_k=2, num_layers=2)
-        y_graph_prob = graph_model.predict_proba(test_df)
-        graph_metrics = compute_probabilistic_metrics(y_true, y_graph_prob, threshold=threshold, ece_bins=5)
+        graph_knn_model = train_graph_enhanced_model(
+            train_df,
+            label_col="risk_label",
+            knn_k=2,
+            num_layers=2,
+            graph_mode="knn",
+        )
+        y_graph_knn_prob = graph_knn_model.predict_proba(test_df)
+        graph_knn_metrics = compute_probabilistic_metrics(y_true, y_graph_knn_prob, threshold=threshold, ece_bins=5)
+
+        infra_edges = build_county_proxy_edge_list(train_df)
+        graph_infra_model = train_graph_enhanced_model(
+            train_df,
+            label_col="risk_label",
+            knn_k=2,
+            num_layers=2,
+            graph_mode="infrastructure",
+            infrastructure_edges=infra_edges,
+        )
+        y_graph_infra_prob = graph_infra_model.predict_proba(test_df)
+        graph_infra_metrics = compute_probabilistic_metrics(y_true, y_graph_infra_prob, threshold=threshold, ece_bins=5)
 
         fold_results.append(
             FoldResult(
@@ -145,7 +165,8 @@ def run_model_research_benchmark(
                 tabular=tabular_metrics,
                 tabular_temporal=temporal_metrics,
                 fusion=fusion_metrics,
-                graph=graph_metrics,
+                graph_knn=graph_knn_metrics,
+                graph_infrastructure=graph_infra_metrics,
             )
         )
 
@@ -207,21 +228,45 @@ def run_model_research_benchmark(
             "auprc": pack_metric("auprc", lambda fr: fr.fusion.auprc or 0.0),
             "ece": pack_metric("ece", lambda fr: fr.fusion.ece or 0.0),
         },
+        "graph_knn": {
+            "accuracy": pack_metric("accuracy", lambda fr: fr.graph_knn.accuracy),
+            "precision": pack_metric("precision", lambda fr: fr.graph_knn.precision),
+            "recall": pack_metric("recall", lambda fr: fr.graph_knn.recall),
+            "specificity": pack_metric("specificity", lambda fr: fr.graph_knn.specificity),
+            "f1": pack_metric("f1", lambda fr: fr.graph_knn.f1),
+            "auroc": pack_metric("auroc", lambda fr: fr.graph_knn.auroc or 0.5),
+            "auprc": pack_metric("auprc", lambda fr: fr.graph_knn.auprc or 0.0),
+            "ece": pack_metric("ece", lambda fr: fr.graph_knn.ece or 0.0),
+        },
+        "graph_infrastructure": {
+            "accuracy": pack_metric("accuracy", lambda fr: fr.graph_infrastructure.accuracy),
+            "precision": pack_metric("precision", lambda fr: fr.graph_infrastructure.precision),
+            "recall": pack_metric("recall", lambda fr: fr.graph_infrastructure.recall),
+            "specificity": pack_metric("specificity", lambda fr: fr.graph_infrastructure.specificity),
+            "f1": pack_metric("f1", lambda fr: fr.graph_infrastructure.f1),
+            "auroc": pack_metric("auroc", lambda fr: fr.graph_infrastructure.auroc or 0.5),
+            "auprc": pack_metric("auprc", lambda fr: fr.graph_infrastructure.auprc or 0.0),
+            "ece": pack_metric("ece", lambda fr: fr.graph_infrastructure.ece or 0.0),
+        },
+        # Keep stable alias used by existing checks/UI.
         "graph": {
-            "accuracy": pack_metric("accuracy", lambda fr: fr.graph.accuracy),
-            "precision": pack_metric("precision", lambda fr: fr.graph.precision),
-            "recall": pack_metric("recall", lambda fr: fr.graph.recall),
-            "specificity": pack_metric("specificity", lambda fr: fr.graph.specificity),
-            "f1": pack_metric("f1", lambda fr: fr.graph.f1),
-            "auroc": pack_metric("auroc", lambda fr: fr.graph.auroc or 0.5),
-            "auprc": pack_metric("auprc", lambda fr: fr.graph.auprc or 0.0),
-            "ece": pack_metric("ece", lambda fr: fr.graph.ece or 0.0),
+            "accuracy": pack_metric("accuracy", lambda fr: fr.graph_infrastructure.accuracy),
+            "precision": pack_metric("precision", lambda fr: fr.graph_infrastructure.precision),
+            "recall": pack_metric("recall", lambda fr: fr.graph_infrastructure.recall),
+            "specificity": pack_metric("specificity", lambda fr: fr.graph_infrastructure.specificity),
+            "f1": pack_metric("f1", lambda fr: fr.graph_infrastructure.f1),
+            "auroc": pack_metric("auroc", lambda fr: fr.graph_infrastructure.auroc or 0.5),
+            "auprc": pack_metric("auprc", lambda fr: fr.graph_infrastructure.auprc or 0.0),
+            "ece": pack_metric("ece", lambda fr: fr.graph_infrastructure.ece or 0.0),
         },
         "improvement_graph_over_historical_accuracy": float(
-            np.mean([fr.graph.accuracy - fr.historical.accuracy for fr in fold_results])
+            np.mean([fr.graph_infrastructure.accuracy - fr.historical.accuracy for fr in fold_results])
         ),
         "improvement_graph_over_fusion_accuracy": float(
-            np.mean([fr.graph.accuracy - fr.fusion.accuracy for fr in fold_results])
+            np.mean([fr.graph_infrastructure.accuracy - fr.fusion.accuracy for fr in fold_results])
+        ),
+        "improvement_graph_infrastructure_over_graph_knn_accuracy": float(
+            np.mean([fr.graph_infrastructure.accuracy - fr.graph_knn.accuracy for fr in fold_results])
         ),
         "ablation_order": [
             "historical",
@@ -229,7 +274,8 @@ def run_model_research_benchmark(
             "tabular",
             "tabular_temporal",
             "fusion",
-            "graph",
+            "graph_knn",
+            "graph_infrastructure",
         ],
         "ablation_accuracy_table": [
             {
@@ -268,11 +314,18 @@ def run_model_research_benchmark(
                 "auprc_mean": pack_metric("auprc", lambda fr: fr.fusion.auprc or 0.0)["mean"],
             },
             {
-                "model": "graph",
-                "accuracy_mean": pack_metric("accuracy", lambda fr: fr.graph.accuracy)["mean"],
-                "accuracy_std": pack_metric("accuracy", lambda fr: fr.graph.accuracy)["std"],
-                "auroc_mean": pack_metric("auroc", lambda fr: fr.graph.auroc or 0.5)["mean"],
-                "auprc_mean": pack_metric("auprc", lambda fr: fr.graph.auprc or 0.0)["mean"],
+                "model": "graph_knn",
+                "accuracy_mean": pack_metric("accuracy", lambda fr: fr.graph_knn.accuracy)["mean"],
+                "accuracy_std": pack_metric("accuracy", lambda fr: fr.graph_knn.accuracy)["std"],
+                "auroc_mean": pack_metric("auroc", lambda fr: fr.graph_knn.auroc or 0.5)["mean"],
+                "auprc_mean": pack_metric("auprc", lambda fr: fr.graph_knn.auprc or 0.0)["mean"],
+            },
+            {
+                "model": "graph_infrastructure",
+                "accuracy_mean": pack_metric("accuracy", lambda fr: fr.graph_infrastructure.accuracy)["mean"],
+                "accuracy_std": pack_metric("accuracy", lambda fr: fr.graph_infrastructure.accuracy)["std"],
+                "auroc_mean": pack_metric("auroc", lambda fr: fr.graph_infrastructure.auroc or 0.5)["mean"],
+                "auprc_mean": pack_metric("auprc", lambda fr: fr.graph_infrastructure.auprc or 0.0)["mean"],
             },
         ],
         "fold_results": [
@@ -283,7 +336,9 @@ def run_model_research_benchmark(
                 "tabular": fr.tabular.__dict__,
                 "tabular_temporal": fr.tabular_temporal.__dict__,
                 "fusion": fr.fusion.__dict__,
-                "graph": fr.graph.__dict__,
+                "graph_knn": fr.graph_knn.__dict__,
+                "graph_infrastructure": fr.graph_infrastructure.__dict__,
+                "graph": fr.graph_infrastructure.__dict__,
             }
             for fr in fold_results
         ],

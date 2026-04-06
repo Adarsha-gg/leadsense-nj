@@ -17,6 +17,8 @@ def _to_markdown(report: dict) -> str:
     h = report["historical"]["accuracy"]["mean"]
     f = report["fusion"]["accuracy"]["mean"]
     g = report["graph"]["accuracy"]["mean"]
+    g_knn = report.get("graph_knn", {}).get("accuracy", {}).get("mean", g)
+    g_infra = report.get("graph_infrastructure", {}).get("accuracy", {}).get("mean", g)
     ablation_rows = [
         "| Model | Accuracy (mean +/- std) | AUROC | AUPRC |",
         "|---|---:|---:|---:|",
@@ -43,6 +45,8 @@ def _to_markdown(report: dict) -> str:
         f"- Historical: `{h:.3f} +/- {report['historical']['accuracy']['std']:.3f}`",
         f"- Fusion: `{f:.3f} +/- {report['fusion']['accuracy']['std']:.3f}`",
         f"- Graph: `{g:.3f} +/- {report['graph']['accuracy']['std']:.3f}`",
+        f"- Graph (KNN): `{g_knn:.3f}`",
+        f"- Graph (Infrastructure): `{g_infra:.3f}`",
         "",
         "## Graph Model Ranking Metrics",
         "",
@@ -53,6 +57,7 @@ def _to_markdown(report: dict) -> str:
         "",
         f"- Graph - Historical accuracy: `{report['improvement_graph_over_historical_accuracy']:.3f}`",
         f"- Graph - Fusion accuracy: `{report['improvement_graph_over_fusion_accuracy']:.3f}`",
+        f"- Infrastructure Graph - KNN Graph accuracy: `{report.get('improvement_graph_infrastructure_over_graph_knn_accuracy', 0.0):.3f}`",
         "",
         "## Ablation Table",
         "",

@@ -5,9 +5,16 @@ from leadsense_nj.demo import DemoSnapshot, build_demo_snapshot
 from leadsense_nj.explainability import compute_linear_contributions, format_driver_lines, top_feature_drivers
 from leadsense_nj.graph_model import (
     GraphEnhancedRiskModel,
+    build_infrastructure_adjacency,
     build_knn_adjacency,
     graph_mean_aggregate,
     train_graph_enhanced_model,
+)
+from leadsense_nj.infrastructure import (
+    build_adjacency_from_edge_list,
+    build_county_proxy_edge_list,
+    load_edge_list,
+    validate_edge_list,
 )
 from leadsense_nj.ingestion import (
     IngestionArtifacts,
@@ -49,7 +56,10 @@ __all__ = [
     "build_epa_pws_lead_signals",
     "build_real_data_cache",
     "build_demo_snapshot",
+    "build_adjacency_from_edge_list",
+    "build_county_proxy_edge_list",
     "build_fusion_feature_table",
+    "build_infrastructure_adjacency",
     "build_knn_adjacency",
     "build_temporal_features",
     "compute_binary_metrics",
@@ -66,6 +76,7 @@ __all__ = [
     "format_driver_lines",
     "generate_policy_brief",
     "historical_signal_prediction",
+    "load_edge_list",
     "ModelVsHistoricalMetrics",
     "OptimizationSummary",
     "optimize_replacement_plan",
@@ -80,6 +91,7 @@ __all__ = [
     "train_fusion_model",
     "train_graph_enhanced_model",
     "train_bootstrap_ensemble",
+    "validate_edge_list",
     "validate_acs_block_group_frame",
     "validate_epa_pws_lead_signal_frame",
     "with_elevated_risk_label",

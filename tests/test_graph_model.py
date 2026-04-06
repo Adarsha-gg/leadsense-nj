@@ -3,7 +3,13 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from leadsense_nj.graph_model import build_knn_adjacency, graph_mean_aggregate, train_graph_enhanced_model
+from leadsense_nj.graph_model import (
+    build_infrastructure_adjacency,
+    build_knn_adjacency,
+    graph_mean_aggregate,
+    train_graph_enhanced_model,
+)
+from leadsense_nj.infrastructure import build_county_proxy_edge_list
 from leadsense_nj.target import with_elevated_risk_label
 
 
@@ -56,6 +62,24 @@ def test_graph_mean_aggregate_shape() -> None:
 def test_train_graph_model_predicts() -> None:
     df = with_elevated_risk_label(_sample_df())
     model = train_graph_enhanced_model(df, knn_k=2, num_layers=2)
+    proba = model.predict_proba(df)
+    assert len(proba) == len(df)
+    assert float(proba.min()) >= 0.0
+    assert float(proba.max()) <= 1.0
+
+
+def test_train_graph_model_infrastructure_mode_predicts() -> None:
+    df = with_elevated_risk_label(_sample_df())
+    edges = build_county_proxy_edge_list(df)
+    adj = build_infrastructure_adjacency(df, edges_df=edges)
+    assert adj.shape == (len(df), len(df))
+    model = train_graph_enhanced_model(
+        df,
+        knn_k=2,
+        num_layers=2,
+        graph_mode="infrastructure",
+        infrastructure_edges=edges,
+    )
     proba = model.predict_proba(df)
     assert len(proba) == len(df)
     assert float(proba.min()) >= 0.0
