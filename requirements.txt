@@ -6,3 +6,6 @@ scikit-learn>=1.8.0
 networkx>=3.6
 pulp>=3.3.0
 requests>=2.32.0
+fastapi>=0.116.0
+uvicorn>=0.35.0
+httpx>=0.28.0

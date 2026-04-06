@@ -32,6 +32,13 @@ Artifacts:
 
 ## Next Phase (Spec-Complete Research)
 
+### Demo/UI Status
+
+- Completed:
+  - JS dashboard served by Python API backend (map, detail, fairness, performance, about tabs)
+- Remaining:
+  - Upgrade point-risk map to full census-block choropleth polygons and layer toggles
+
 ### Phase A: Real Data Ingestion
 
 - Completed:

@@ -86,14 +86,16 @@ Outputs:
 - `data/cache/epa_nj_pws_lead_signals.csv`
 - `data/cache/ingestion_metadata.json`
 
-## Demo App
+## Demo App (JS Frontend + Python Backend)
 
 ```bash
 python app.py
 ```
 
-Or directly:
+Then open: `http://127.0.0.1:8000`
+
+## Streamlit App (Legacy)
 
 ```bash
-streamlit run app/streamlit_app.py
+python app_streamlit.py
 ```

@@ -204,3 +204,25 @@
   - `python -m pytest -q` -> `46 passed`
   - `python scripts/fetch_sentinel_features.py --feature-table data/processed/block_group_features_sample.csv --cache-dir data/cache --start-date 2024-04-01 --end-date 2024-10-31 --items-per-block 1 --max-cloud-cover 60` -> wrote Sentinel cache artifacts
   - `python scripts/run_feature_checks.py` -> `F12 checks passed`
+
+## F13 - JS Dashboard + API
+
+- Status: `completed`
+- Scope:
+  - FastAPI backend for dashboard data, fairness comparison, and benchmark payloads
+  - Static JavaScript frontend with five tabs:
+    - NJ Risk Map
+    - Block Detail
+    - Fairness Dashboard
+    - Model Performance
+    - About
+  - Map interaction (Leaflet point map with risk coloring + click-to-detail)
+  - Side-by-side fairness vs no-fairness spending comparison
+  - Primary launcher switched to JS app (`python app.py`)
+- Exit criteria:
+  - `python -m pytest -q` passes with API tests
+  - `python scripts/run_feature_checks.py` passes including F13
+  - `python app.py` serves dashboard at `http://127.0.0.1:8000`
+- Verification:
+  - `python -m pytest -q` -> `50 passed`
+  - `python scripts/run_feature_checks.py` -> `F13 checks passed`

@@ -9,6 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.api_server import build_benchmark_payload, build_dashboard_payload
 from leadsense_nj.config import DataConfig
 from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.demo import build_demo_snapshot
@@ -310,6 +311,40 @@ def run_feature_12_checks() -> None:
     print(f"Sentinel source tags: {sorted(live_or_fallback)}")
 
 
+def run_feature_13_checks() -> None:
+    dashboard = build_dashboard_payload(
+        budget=35000.0,
+        fairness_tolerance=0.05,
+        min_county_coverage=0,
+        optimizer_method="ilp",
+    )
+    benchmark = build_benchmark_payload()
+
+    if not dashboard.get("rows"):
+        raise RuntimeError("F13 failed: dashboard payload contains no rows.")
+    first = dashboard["rows"][0]
+    for col in ["lat", "lon", "risk_score", "top_drivers"]:
+        if col not in first:
+            raise RuntimeError(f"F13 failed: dashboard row missing '{col}'.")
+
+    fair = dashboard.get("fairness_comparison", {})
+    if "with_fairness" not in fair or "without_fairness" not in fair:
+        raise RuntimeError("F13 failed: fairness comparison blocks missing.")
+    if "county_spend_comparison" not in fair:
+        raise RuntimeError("F13 failed: county spend comparison missing.")
+
+    if len(benchmark.get("ablation_accuracy_table", [])) < 5:
+        raise RuntimeError("F13 failed: benchmark ablation table is incomplete.")
+
+    for path in [PROJECT_ROOT / "web" / "index.html", PROJECT_ROOT / "web" / "app.js", PROJECT_ROOT / "web" / "styles.css"]:
+        if not path.exists():
+            raise RuntimeError(f"F13 failed: missing frontend file {path}.")
+
+    print("F13 checks passed.")
+    print(f"Dashboard rows: {len(dashboard['rows'])}")
+    print(f"Ablation rows: {len(benchmark['ablation_accuracy_table'])}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
@@ -323,3 +358,4 @@ if __name__ == "__main__":
     run_feature_10_checks()
     run_feature_11_checks()
     run_feature_12_checks()
+    run_feature_13_checks()

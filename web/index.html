@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeadSense NJ Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>LeadSense NJ</h1>
+        <p>JS Frontend + Python Backend</p>
+      </div>
+      <div class="controls">
+        <label>
+          Budget
+          <input id="budget" type="range" min="10000" max="100000" step="1000" value="35000" />
+          <span id="budget-label">$35,000</span>
+        </label>
+        <label>
+          Fairness tolerance
+          <input id="fairness" type="range" min="0" max="0.2" step="0.01" value="0.05" />
+          <span id="fairness-label">0.05</span>
+        </label>
+        <label>
+          Optimizer
+          <select id="optimizer">
+            <option value="ilp">ILP</option>
+            <option value="greedy">Greedy</option>
+          </select>
+        </label>
+        <button id="refresh-btn" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-map">NJ Risk Map</button>
+      <button class="tab-btn" data-tab="tab-detail">Block Detail</button>
+      <button class="tab-btn" data-tab="tab-fairness">Fairness Dashboard</button>
+      <button class="tab-btn" data-tab="tab-performance">Model Performance</button>
+      <button class="tab-btn" data-tab="tab-about">About</button>
+    </nav>
+
+    <main>
+      <section id="tab-map" class="tab active">
+        <div id="risk-map"></div>
+        <p class="hint">Click a point to load block details.</p>
+      </section>
+
+      <section id="tab-detail" class="tab">
+        <div id="detail-content"></div>
+      </section>
+
+      <section id="tab-fairness" class="tab">
+        <div id="fairness-summary" class="cards"></div>
+        <h3>County Spending Comparison</h3>
+        <div id="county-table"></div>
+      </section>
+
+      <section id="tab-performance" class="tab">
+        <div id="perf-summary" class="cards"></div>
+        <h3>Ablation Table</h3>
+        <div id="ablation-table"></div>
+      </section>
+
+      <section id="tab-about" class="tab">
+        <h2>About LeadSense NJ</h2>
+        <p>
+          This frontend is JavaScript-based and uses a Python API backend for model scoring, fairness-aware
+          optimization, policy briefs, and research benchmark outputs.
+        </p>
+        <ul>
+          <li>Backend: FastAPI + LeadSense Python modules</li>
+          <li>Map: Leaflet</li>
+          <li>Data: NJ sample block groups + cached ingestion artifacts</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
