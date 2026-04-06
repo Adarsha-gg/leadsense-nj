@@ -38,6 +38,7 @@
           </select>
         </label>
         <button id="refresh-btn" type="button">Refresh</button>
+        <span id="refresh-status" class="refresh-status muted"></span>
       </div>
     </header>
 
@@ -74,6 +75,10 @@
           Click a point to load block details. Points are NJ block-group centroids; clusters near Philadelphia are
           Camden/Gloucester NJ areas.
         </p>
+        <h3>County Risk Profile (Current Scope)</h3>
+        <div id="county-risk-bars"></div>
+        <h3>Highest Risk Areas (Current Scope)</h3>
+        <div id="map-top-table"></div>
       </section>
 
       <section id="tab-detail" class="tab">
@@ -130,6 +135,8 @@
 
       <section id="tab-performance" class="tab">
         <div id="perf-summary" class="cards"></div>
+        <h3>Cross-Validation Accuracy Chart</h3>
+        <div id="perf-bar-chart"></div>
         <h3>Ablation Table</h3>
         <div id="ablation-table"></div>
       </section>

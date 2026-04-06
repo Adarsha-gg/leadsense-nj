@@ -21,6 +21,40 @@ const MAP_COLORS = ["#2b83ba", "#7fcdbb", "#ffffbf", "#fdae61", "#d7191c"];
 const NO_DATA_COLOR = "#9aa5b1";
 const DEFAULT_MAP_METRIC = "risk_score";
 const MAP_ROW_LIMIT = 1200;
+const DRIVER_METADATA = {
+  pws_any_sample_gt15_3y: {
+    label: "Recent samples above 15 ppb",
+    why: "The water system had recent lead samples over the federal action level.",
+  },
+  pws_action_level_exceedance_5y: {
+    label: "Action-level exceedance history",
+    why: "Past action-level exceedances suggest persistent system-level lead risk.",
+  },
+  lead_90p_ppb: {
+    label: "Lead concentration (90th percentile)",
+    why: "Higher measured lead concentration directly raises health risk concern.",
+  },
+  pct_housing_pre_1950: {
+    label: "Older housing share",
+    why: "Older homes are more likely to have legacy lead plumbing/materials.",
+  },
+  poverty_rate: {
+    label: "Economic vulnerability",
+    why: "Higher poverty can reduce access to mitigation and plumbing upgrades.",
+  },
+  minority_share: {
+    label: "Community equity priority",
+    why: "Included to track and protect historically overburdened communities.",
+  },
+  winter_freeze_thaw_days: {
+    label: "Pipe stress from freeze-thaw",
+    why: "Frequent freeze-thaw cycles can increase infrastructure deterioration.",
+  },
+  housing_age_proxy: {
+    label: "Estimated housing age risk",
+    why: "Older median housing years increase likelihood of legacy lead service lines.",
+  },
+};
 
 const state = {
   dashboard: null,
@@ -34,6 +68,34 @@ const state = {
 
 function fmtMoney(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function fmtPct(x) {
+  return `${(Number(x || 0) * 100).toFixed(1)}%`;
+}
+
+function titleFromSnake(name) {
+  return String(name || "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function driverLabel(feature) {
+  return DRIVER_METADATA[feature]?.label || titleFromSnake(feature);
+}
+
+function driverWhy(feature) {
+  return DRIVER_METADATA[feature]?.why || "This feature was strongly associated with higher predicted lead risk.";
+}
+
+function setRefreshState(isLoading, message = "") {
+  const btn = document.getElementById("refresh-btn");
+  const status = document.getElementById("refresh-status");
+  if (!btn || !status) return;
+  btn.disabled = Boolean(isLoading);
+  btn.classList.toggle("is-loading", Boolean(isLoading));
+  btn.textContent = isLoading ? "Refreshing..." : "Refresh";
+  status.textContent = message || "";
 }
 
 function qs() {
@@ -269,29 +331,136 @@ function renderMap() {
     const limitHint = limited ? ` (showing top ${rowsReturned} by risk)` : "";
     scope.textContent = `Scope: ${county} • ${rowsReturned} loaded / ${rowsTotal} available${limitHint}`;
   }
+  renderMapScopeAnalytics(rows);
+}
+
+function barChartHtml(items) {
+  if (!items.length) return `<div class="muted">No chart data.</div>`;
+  const max = Math.max(...items.map((item) => Number(item.value || 0)), 1e-9);
+  return `
+    <div class="bar-chart">
+      ${items
+        .map((item) => {
+          const raw = Number(item.value || 0);
+          const pct = Math.max(0, Math.min(100, (raw / max) * 100));
+          return `
+            <div class="bar-row">
+              <div>${item.label}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+              <div class="bar-value">${item.display}</div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderMapScopeAnalytics(rows) {
+  const countyRiskEl = document.getElementById("county-risk-bars");
+  const topTableEl = document.getElementById("map-top-table");
+  if (!countyRiskEl || !topTableEl) return;
+
+  if (!rows.length) {
+    countyRiskEl.innerHTML = `<div class="muted">No county risk data for current scope.</div>`;
+    topTableEl.innerHTML = `<div class="muted">No area rows available.</div>`;
+    return;
+  }
+
+  const countyMap = new Map();
+  for (const row of rows) {
+    const county = String(row.county || "Unknown");
+    const risk = Number(row.risk_score || 0);
+    if (!countyMap.has(county)) countyMap.set(county, { sum: 0, n: 0 });
+    const ref = countyMap.get(county);
+    ref.sum += risk;
+    ref.n += 1;
+  }
+  const countyBars = [...countyMap.entries()]
+    .map(([county, agg]) => ({ label: county, value: agg.sum / Math.max(agg.n, 1), display: fmtPct(agg.sum / Math.max(agg.n, 1)) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 12);
+  countyRiskEl.innerHTML = barChartHtml(countyBars);
+
+  const topRows = [...rows]
+    .sort((a, b) => Number(b.risk_score || 0) - Number(a.risk_score || 0))
+    .slice(0, 12);
+  topTableEl.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>County</th>
+          <th>Area</th>
+          <th>Risk</th>
+          <th>Uncertainty</th>
+          <th>Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${topRows
+          .map(
+            (row, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${row.county || "Unknown"}</td>
+                <td>${row.municipality || row.geoid}</td>
+                <td>${fmtPct(row.risk_score)}</td>
+                <td>${Number(row.risk_uncertainty || 0).toFixed(3)}</td>
+                <td>${fmtMoney(row.replacement_cost)}</td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function trendSvg(values) {
   const v = (values || []).map((x) => Number(x)).filter((x) => Number.isFinite(x));
   if (!v.length) return `<div class="muted">No quarterly trend available.</div>`;
 
-  const w = 600;
-  const h = 140;
-  const pad = 16;
+  const w = 640;
+  const h = 190;
+  const padLeft = 42;
+  const padRight = 16;
+  const padTop = 16;
+  const padBottom = 34;
   const min = Math.min(...v);
   const max = Math.max(...v);
   const span = Math.max(max - min, 1e-6);
   const points = v
     .map((y, i) => {
-      const x = pad + (i * (w - 2 * pad)) / Math.max(v.length - 1, 1);
-      const yy = h - pad - ((y - min) / span) * (h - 2 * pad);
+      const x = padLeft + (i * (w - padLeft - padRight)) / Math.max(v.length - 1, 1);
+      const yy = h - padBottom - ((y - min) / span) * (h - padTop - padBottom);
       return `${x},${yy}`;
     })
     .join(" ");
+  const circles = v
+    .map((y, i) => {
+      const x = padLeft + (i * (w - padLeft - padRight)) / Math.max(v.length - 1, 1);
+      const yy = h - padBottom - ((y - min) / span) * (h - padTop - padBottom);
+      return `<circle cx="${x}" cy="${yy}" r="2.5" fill="#0a9396" />`;
+    })
+    .join("");
+  const xTicks = v
+    .map((_, i) => {
+      const x = padLeft + (i * (w - padLeft - padRight)) / Math.max(v.length - 1, 1);
+      return `<text x="${x}" y="${h - 10}" text-anchor="middle" fill="#4f5d75" font-size="10">Q${i + 1}</text>`;
+    })
+    .join("");
 
   return `
     <svg class="trend" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-      <polyline points="${points}" fill="none" stroke="#006d77" stroke-width="2" />
+      <line x1="${padLeft}" y1="${h - padBottom}" x2="${w - padRight}" y2="${h - padBottom}" stroke="#94a3b8" stroke-width="1" />
+      <line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${h - padBottom}" stroke="#94a3b8" stroke-width="1" />
+      <text x="${padLeft - 6}" y="${padTop + 2}" text-anchor="end" fill="#4f5d75" font-size="10">${max.toFixed(1)} ppb</text>
+      <text x="${padLeft - 6}" y="${h - padBottom + 4}" text-anchor="end" fill="#4f5d75" font-size="10">${min.toFixed(1)} ppb</text>
+      <text x="${w / 2}" y="${h - 2}" text-anchor="middle" fill="#4f5d75" font-size="10">Quarter</text>
+      <polyline points="${points}" fill="none" stroke="#006d77" stroke-width="2.2" />
+      ${circles}
+      ${xTicks}
     </svg>
   `;
 }
@@ -328,6 +497,95 @@ function selectRelativeArea(step) {
   renderMap();
 }
 
+function meanOf(rows, col) {
+  if (!rows.length) return NaN;
+  const vals = rows.map((r) => Number(r?.[col])).filter((v) => Number.isFinite(v));
+  if (!vals.length) return NaN;
+  return vals.reduce((acc, x) => acc + x, 0) / vals.length;
+}
+
+function detailContextTable(row, rows) {
+  const countyRows = rows.filter((r) => String(r.county || "") === String(row.county || ""));
+  const metrics = [
+    { key: "risk_score", label: "Predicted Risk", fmt: fmtPct },
+    { key: "risk_uncertainty", label: "Uncertainty", fmt: (v) => Number(v).toFixed(3) },
+    { key: "lead_90p_ppb", label: "Lead 90th Percentile", fmt: (v) => `${Number(v).toFixed(1)} ppb` },
+    { key: "pct_housing_pre_1950", label: "Pre-1950 Housing", fmt: fmtPct },
+    { key: "poverty_rate", label: "Poverty Rate", fmt: fmtPct },
+    { key: "replacement_cost", label: "Replacement Cost", fmt: fmtMoney },
+  ];
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Selected Area</th>
+          <th>${row.county || "County"} Avg</th>
+          <th>Current Scope Avg</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${metrics
+          .map((m) => {
+            const own = Number(row[m.key]);
+            const countyAvg = meanOf(countyRows, m.key);
+            const scopeAvg = meanOf(rows, m.key);
+            return `
+              <tr>
+                <td>${m.label}</td>
+                <td>${Number.isFinite(own) ? m.fmt(own) : "N/A"}</td>
+                <td>${Number.isFinite(countyAvg) ? m.fmt(countyAvg) : "N/A"}</td>
+                <td>${Number.isFinite(scopeAvg) ? m.fmt(scopeAvg) : "N/A"}</td>
+              </tr>
+            `;
+          })
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function detailBreakdownChart(row) {
+  const signals = [
+    { label: "Predicted risk", value: Number(row.risk_score || 0), display: fmtPct(row.risk_score) },
+    { label: "Lead concentration signal", value: Math.min(1, Number(row.lead_90p_ppb || 0) / 20), display: `${Number(row.lead_90p_ppb || 0).toFixed(1)} ppb` },
+    { label: "Old housing signal", value: Number(row.pct_housing_pre_1950 || 0), display: fmtPct(row.pct_housing_pre_1950) },
+    { label: "Poverty signal", value: Number(row.poverty_rate || 0), display: fmtPct(row.poverty_rate) },
+    { label: "Uncertainty level", value: Math.min(1, Number(row.risk_uncertainty || 0) / 0.2), display: Number(row.risk_uncertainty || 0).toFixed(3) },
+  ];
+  return barChartHtml(signals);
+}
+
+function detailDriversTable(drivers) {
+  if (!drivers.length) return `<div class="muted">No driver details available.</div>`;
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Driver</th>
+          <th>Importance</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${drivers
+          .map((d) => {
+            const feature = String(d.feature || "");
+            const score = Number(d.score || 0);
+            return `
+              <tr>
+                <td>${driverLabel(feature)}</td>
+                <td>${score.toFixed(3)}</td>
+                <td>${driverWhy(feature)}</td>
+              </tr>
+            `;
+          })
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
 function renderDetail() {
   const container = document.getElementById("detail-content");
   const rows = state.sortedRows;
@@ -357,12 +615,15 @@ function renderDetail() {
         <div class="card"><div class="label">Replacement Cost</div><div class="value">${fmtMoney(row.replacement_cost)}</div></div>
         <div class="card"><div class="label">Minority Share</div><div class="value">${(Number(row.minority_share || 0) * 100).toFixed(1)}%</div></div>
       </div>
-      <h3>Top Drivers</h3>
-      <ul>
-        ${drivers.map((d) => `<li>${d.feature}: ${Number(d.score).toFixed(3)}</li>`).join("") || "<li>No drivers available.</li>"}
-      </ul>
-      <h3>Historical Lead Trend (Quarterly)</h3>
+      <h3>Why This Area Is Flagged</h3>
+      ${detailDriversTable(drivers)}
+      <p class="drivers-note">Importance values are relative model signal strengths, not direct percentages.</p>
+      <h3>Risk Signal Breakdown</h3>
+      ${detailBreakdownChart(row)}
+      <h3>Historical Lead Trend (Quarterly, ppb)</h3>
       ${trendSvg(row.lead_trend)}
+      <h3>Area vs County vs Scope Comparison</h3>
+      ${detailContextTable(row, rows)}
       <h3>Policy Brief</h3>
       <pre>${brief}</pre>
     </div>
@@ -568,6 +829,17 @@ function renderPerformance() {
     <div class="card"><div class="label">In-Sample (Snapshot) Acc</div><div class="value">${(metrics.model.accuracy * 100).toFixed(1)}%</div></div>
   `;
 
+  const perfChart = document.getElementById("perf-bar-chart");
+  if (perfChart) {
+    const chartRows = [
+      { label: "Historical baseline", value: Number(cv.historical_accuracy_mean || 0), display: fmtPct(cv.historical_accuracy_mean) },
+      { label: "Fusion model", value: Number(cv.fusion_accuracy_mean || 0), display: fmtPct(cv.fusion_accuracy_mean) },
+      { label: "Graph model", value: Number(cv.graph_accuracy_mean || 0), display: fmtPct(cv.graph_accuracy_mean) },
+      { label: "Snapshot (in-sample)", value: Number(metrics.model.accuracy || 0), display: fmtPct(metrics.model.accuracy) },
+    ];
+    perfChart.innerHTML = barChartHtml(chartRows);
+  }
+
   const rows = state.benchmark?.ablation_accuracy_table || [];
   document.getElementById("ablation-table").innerHTML = `
     <table>
@@ -609,28 +881,39 @@ function activateTab(id) {
 }
 
 async function refreshAll() {
-  document.getElementById("budget-label").textContent = fmtMoney(document.getElementById("budget").value);
-  document.getElementById("fairness-label").textContent = Number(document.getElementById("fairness").value).toFixed(2);
-  await fetchDashboard();
-  if (!state.aiStatus) await fetchAIStatus();
-  populateCountyFilter();
-  if (!state.benchmark) await fetchBenchmark();
+  const started = Date.now();
+  setRefreshState(true, "Refreshing dashboard data...");
+  try {
+    document.getElementById("budget-label").textContent = fmtMoney(document.getElementById("budget").value);
+    document.getElementById("fairness-label").textContent = Number(document.getElementById("fairness").value).toFixed(2);
+    await fetchDashboard();
+    if (!state.aiStatus) await fetchAIStatus();
+    populateCountyFilter();
+    if (!state.benchmark) await fetchBenchmark();
 
-  const rows = state.dashboard?.rows || [];
-  state.sortedRows = sortedRows(rows);
-  if (!rows.length) {
-    renderAIStatus();
-    return;
+    const rows = state.dashboard?.rows || [];
+    state.sortedRows = sortedRows(rows);
+    if (!rows.length) {
+      renderAIStatus();
+      const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+      setRefreshState(false, `Refresh complete in ${elapsed}s (no rows returned).`);
+      return;
+    }
+
+    const exists = rows.some((r) => String(r.geoid) === String(state.selectedGeoid));
+    if (!exists) state.selectedGeoid = String(rows[0].geoid);
+    populateDetailSelector();
+
+    renderMap();
+    renderDetail();
+    renderFairness();
+    renderPerformance();
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+    setRefreshState(false, `Refresh complete in ${elapsed}s.`);
+  } catch (err) {
+    setRefreshState(false, `Refresh failed: ${err.message}`);
+    throw err;
   }
-
-  const exists = rows.some((r) => String(r.geoid) === String(state.selectedGeoid));
-  if (!exists) state.selectedGeoid = String(rows[0].geoid);
-  populateDetailSelector();
-
-  renderMap();
-  renderDetail();
-  renderFairness();
-  renderPerformance();
 }
 
 function wireEvents() {
