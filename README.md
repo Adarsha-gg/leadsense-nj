@@ -102,6 +102,10 @@ python app.py
 
 Then open: `http://127.0.0.1:8000`
 
+Notes:
+- Dashboard now uses expanded NJ research dataset when available (`data/processed/nj_research_features.csv`).
+- Performance cards show cross-validated metrics from benchmark artifacts.
+
 ## Streamlit App (Legacy)
 
 ```bash

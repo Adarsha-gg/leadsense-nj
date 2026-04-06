@@ -16,8 +16,8 @@
       <div class="controls">
         <label>
           Budget
-          <input id="budget" type="range" min="10000" max="100000" step="1000" value="35000" />
-          <span id="budget-label">$35,000</span>
+          <input id="budget" type="range" min="100000" max="10000000" step="50000" value="2000000" />
+          <span id="budget-label">$2,000,000</span>
         </label>
         <label>
           Fairness tolerance
@@ -27,8 +27,8 @@
         <label>
           Optimizer
           <select id="optimizer">
-            <option value="ilp">ILP</option>
             <option value="greedy">Greedy</option>
+            <option value="ilp">ILP</option>
           </select>
         </label>
         <button id="refresh-btn" type="button">Refresh</button>
@@ -55,6 +55,7 @@
 
       <section id="tab-fairness" class="tab">
         <div id="fairness-summary" class="cards"></div>
+        <p id="fairness-note" class="muted"></p>
         <h3>County Spending Comparison</h3>
         <div id="county-table"></div>
       </section>

@@ -148,6 +148,18 @@ function renderFairness() {
     <div class="card"><div class="label">Without Fairness • Minority Share</div><div class="value">${(Number(noFair.achieved_minority_share) * 100).toFixed(1)}%</div></div>
   `;
 
+  const samePlan =
+    Number(withFair.selected_count) === Number(noFair.selected_count) &&
+    Math.abs(Number(withFair.total_risk_reduced) - Number(noFair.total_risk_reduced)) < 1e-6 &&
+    Math.abs(Number(withFair.achieved_minority_share) - Number(noFair.achieved_minority_share)) < 1e-6;
+  const noteEl = document.getElementById("fairness-note");
+  if (samePlan) {
+    noteEl.textContent =
+      "Fairness constraint is currently non-binding at these settings (with/without fairness pick the same plan). Try lower fairness tolerance or different budget to stress-test tradeoffs.";
+  } else {
+    noteEl.textContent = "Fairness constraint changed the selected replacement plan.";
+  }
+
   const rows = fair.county_spend_comparison || [];
   document.getElementById("county-table").innerHTML = `
     <table>
@@ -181,14 +193,16 @@ function renderFairness() {
 
 function renderPerformance() {
   const metrics = state.dashboard?.comparison_metrics;
-  if (!metrics) return;
+  const cv = state.dashboard?.cv_metrics;
+  if (!metrics || !cv) return;
   const cards = document.getElementById("perf-summary");
   cards.innerHTML = `
-    <div class="card"><div class="label">Historical Accuracy</div><div class="value">${(metrics.historical.accuracy * 100).toFixed(1)}%</div></div>
-    <div class="card"><div class="label">Model Accuracy</div><div class="value">${(metrics.model.accuracy * 100).toFixed(1)}%</div></div>
-    <div class="card"><div class="label">Model AUROC</div><div class="value">${Number(metrics.model_auroc).toFixed(3)}</div></div>
-    <div class="card"><div class="label">Model AUPRC</div><div class="value">${Number(metrics.model_auprc).toFixed(3)}</div></div>
-    <div class="card"><div class="label">Model ECE</div><div class="value">${Number(metrics.model_ece).toFixed(3)}</div></div>
+    <div class="card"><div class="label">CV Historical Acc</div><div class="value">${(Number(cv.historical_accuracy_mean) * 100).toFixed(1)}%</div></div>
+    <div class="card"><div class="label">CV Fusion Acc</div><div class="value">${(Number(cv.fusion_accuracy_mean) * 100).toFixed(1)}%</div></div>
+    <div class="card"><div class="label">CV Graph Acc</div><div class="value">${(Number(cv.graph_accuracy_mean) * 100).toFixed(1)}%</div></div>
+    <div class="card"><div class="label">CV Fusion AUROC</div><div class="value">${Number(cv.fusion_auroc_mean).toFixed(3)}</div></div>
+    <div class="card"><div class="label">CV Fusion AUPRC</div><div class="value">${Number(cv.fusion_auprc_mean).toFixed(3)}</div></div>
+    <div class="card"><div class="label">In-Sample (Snapshot) Acc</div><div class="value">${(metrics.model.accuracy * 100).toFixed(1)}%</div></div>
   `;
 
   const rows = state.benchmark?.ablation_accuracy_table || [];

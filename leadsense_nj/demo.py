@@ -34,18 +34,35 @@ def build_demo_snapshot(
     fairness_tolerance: float = 0.05,
     min_county_coverage: int = 0,
     optimizer_method: str = "ilp",
+    baseline_epochs: int = 700,
+    baseline_learning_rate: float = 0.1,
+    ensemble_models: int = 12,
+    ensemble_epochs: int = 350,
+    ensemble_learning_rate: float = 0.1,
 ) -> DemoSnapshot:
     cleaned = impute_missing_values(df)
     labeled = with_elevated_risk_label(cleaned)
-    model, _ = fit_tabular_logistic(labeled, epochs=700, learning_rate=0.1)
-    ensemble = train_bootstrap_ensemble(labeled, n_models=12, epochs=350, learning_rate=0.1, seed=19)
+    model, _ = fit_tabular_logistic(labeled, epochs=baseline_epochs, learning_rate=baseline_learning_rate)
+    ensemble = train_bootstrap_ensemble(
+        labeled,
+        n_models=ensemble_models,
+        epochs=ensemble_epochs,
+        learning_rate=ensemble_learning_rate,
+        seed=19,
+    )
     mean, std = ensemble.predict_mean_std(labeled)
 
     scored = labeled.copy()
     scored["risk_score"] = mean
     scored["risk_uncertainty"] = std
     scored["replacement_cost"] = 10000 + (scored["pct_housing_pre_1950"] * 8000) + (scored["lead_90p_ppb"] * 200)
-    scored["minority_share"] = scored["poverty_rate"].clip(0.0, 1.0)
+    if "minority_share" in scored.columns:
+        scored["minority_share"] = pd.to_numeric(scored["minority_share"], errors="coerce").fillna(
+            scored["poverty_rate"]
+        )
+    else:
+        scored["minority_share"] = scored["poverty_rate"]
+    scored["minority_share"] = scored["minority_share"].clip(0.0, 1.0)
 
     if optimizer_method == "ilp":
         selected, summary = optimize_replacement_plan_ilp(

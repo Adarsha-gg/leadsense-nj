@@ -314,10 +314,10 @@ def run_feature_12_checks() -> None:
 
 def run_feature_13_checks() -> None:
     dashboard = build_dashboard_payload(
-        budget=35000.0,
+        budget=2000000.0,
         fairness_tolerance=0.05,
         min_county_coverage=0,
-        optimizer_method="ilp",
+        optimizer_method="greedy",
     )
     benchmark = build_benchmark_payload()
 

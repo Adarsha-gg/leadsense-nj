@@ -24,6 +24,7 @@ from leadsense_nj.target import with_elevated_risk_label
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "block_group_features_sample.csv"
+RESEARCH_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "nj_research_features.csv"
 WEB_DIR = PROJECT_ROOT / "web"
 
 
@@ -79,7 +80,10 @@ def _compute_fairness_comparison(
     min_county_coverage: int,
     optimizer_method: str,
 ) -> dict[str, Any]:
-    optimizer = optimize_replacement_plan_ilp if optimizer_method == "ilp" else optimize_replacement_plan
+    effective_optimizer = optimizer_method
+    if len(scored_df) > 1000 and optimizer_method == "ilp":
+        effective_optimizer = "greedy"
+    optimizer = optimize_replacement_plan_ilp if effective_optimizer == "ilp" else optimize_replacement_plan
     selected_fair, summary_fair = optimizer(
         scored_df,
         budget=budget,
@@ -104,10 +108,18 @@ def _compute_fairness_comparison(
         else pd.Series(dtype=float)
     )
     county_table = pd.concat([fair_spend, no_fair_spend], axis=1).fillna(0.0).reset_index()
+    if "with_fairness_spend" not in county_table.columns:
+        county_table["with_fairness_spend"] = 0.0
+    if "without_fairness_spend" not in county_table.columns:
+        county_table["without_fairness_spend"] = 0.0
+    if "county" not in county_table.columns:
+        first_col = county_table.columns[0]
+        county_table = county_table.rename(columns={first_col: "county"})
     county_table["spend_delta"] = county_table["with_fairness_spend"] - county_table["without_fairness_spend"]
     county_table = county_table.sort_values("county").reset_index(drop=True)
 
     return {
+        "effective_optimizer": effective_optimizer,
         "with_fairness": {
             "summary": _normalize_value(summary_fair),
             "selected_rows": _serialize_df(selected_fair),
@@ -127,13 +139,21 @@ def build_dashboard_payload(
     min_county_coverage: int = 0,
     optimizer_method: str = "ilp",
 ) -> dict[str, Any]:
-    base_df = build_feature_table(DEFAULT_DATA_PATH)
+    dataset_path = RESEARCH_DATA_PATH if RESEARCH_DATA_PATH.exists() else DEFAULT_DATA_PATH
+    base_df = build_feature_table(dataset_path)
+    large_mode = len(base_df) >= 1000
+
     snapshot = build_demo_snapshot(
         base_df,
         budget=budget,
         fairness_tolerance=fairness_tolerance,
         min_county_coverage=min_county_coverage,
         optimizer_method=optimizer_method,
+        baseline_epochs=90 if large_mode else 700,
+        baseline_learning_rate=0.08 if large_mode else 0.1,
+        ensemble_models=2 if large_mode else 12,
+        ensemble_epochs=60 if large_mode else 350,
+        ensemble_learning_rate=0.08 if large_mode else 0.1,
     )
 
     driver_map = _build_driver_map(base_df)
@@ -157,6 +177,7 @@ def build_dashboard_payload(
         optimizer_method=optimizer_method,
     )
 
+    benchmark = build_benchmark_payload()
     return {
         "params": {
             "budget": float(budget),
@@ -164,11 +185,20 @@ def build_dashboard_payload(
             "min_county_coverage": int(min_county_coverage),
             "optimizer_method": str(optimizer_method),
         },
+        "dataset_path": str(dataset_path),
+        "dataset_rows": int(len(base_df)),
         "rows": _serialize_df(scored),
         "selected_rows": _serialize_df(snapshot.selected_df),
         "optimization_summary": _normalize_value(snapshot.optimization_summary),
         "policy_briefs": _normalize_value(snapshot.policy_briefs),
         "comparison_metrics": _normalize_value(snapshot.comparison_metrics),
+        "cv_metrics": {
+            "historical_accuracy_mean": float(benchmark["historical"]["accuracy"]["mean"]),
+            "fusion_accuracy_mean": float(benchmark["fusion"]["accuracy"]["mean"]),
+            "graph_accuracy_mean": float(benchmark["graph"]["accuracy"]["mean"]),
+            "fusion_auroc_mean": float(benchmark["fusion"]["auroc"]["mean"]),
+            "fusion_auprc_mean": float(benchmark["fusion"]["auprc"]["mean"]),
+        },
         "fairness_comparison": fairness,
     }
 
@@ -201,6 +231,21 @@ app = FastAPI(title="LeadSense NJ API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
 
+@lru_cache(maxsize=16)
+def _cached_dashboard_payload(
+    budget: float,
+    fairness_tolerance: float,
+    min_county_coverage: int,
+    optimizer_method: str,
+) -> dict[str, Any]:
+    return build_dashboard_payload(
+        budget=budget,
+        fairness_tolerance=fairness_tolerance,
+        min_county_coverage=min_county_coverage,
+        optimizer_method=optimizer_method,
+    )
+
+
 @app.get("/api/health")
 def api_health() -> dict[str, str]:
     return {"status": "ok"}
@@ -213,16 +258,16 @@ def api_benchmark() -> dict[str, Any]:
 
 @app.get("/api/dashboard")
 def api_dashboard(
-    budget: float = Query(default=35000.0, ge=10000.0, le=1000000.0),
+    budget: float = Query(default=2000000.0, ge=10000.0, le=100000000.0),
     fairness_tolerance: float = Query(default=0.05, ge=0.0, le=1.0),
     min_county_coverage: int = Query(default=0, ge=0, le=10),
-    optimizer_method: str = Query(default="ilp", pattern="^(ilp|greedy)$"),
+    optimizer_method: str = Query(default="greedy", pattern="^(ilp|greedy)$"),
 ) -> dict[str, Any]:
-    return build_dashboard_payload(
-        budget=budget,
-        fairness_tolerance=fairness_tolerance,
-        min_county_coverage=min_county_coverage,
-        optimizer_method=optimizer_method,
+    return _cached_dashboard_payload(
+        budget=float(round(budget, 4)),
+        fairness_tolerance=float(round(fairness_tolerance, 4)),
+        min_county_coverage=int(min_county_coverage),
+        optimizer_method=str(optimizer_method),
     )
 
 

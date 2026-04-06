@@ -183,6 +183,7 @@ def build_nj_research_feature_table(
         "pct_housing_pre_1950",
         "poverty_rate",
         "children_under_6_rate",
+        "minority_share",
         "lead_90p_ppb",
         "ph_mean",
         "hardness_mg_l",

@@ -7,10 +7,10 @@ from app.api_server import app, build_benchmark_payload, build_dashboard_payload
 
 def test_build_dashboard_payload_has_map_and_fairness_data() -> None:
     payload = build_dashboard_payload(
-        budget=35000.0,
+        budget=2000000.0,
         fairness_tolerance=0.05,
         min_county_coverage=0,
-        optimizer_method="ilp",
+        optimizer_method="greedy",
     )
     assert "rows" in payload
     assert len(payload["rows"]) > 0
