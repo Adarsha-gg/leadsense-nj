@@ -45,11 +45,40 @@
 
     <main>
       <section id="tab-map" class="tab active">
+        <div class="map-toolbar">
+          <label>
+            Color Layer
+            <select id="map-metric">
+              <option value="risk_score">Risk Score</option>
+              <option value="risk_uncertainty">Uncertainty</option>
+              <option value="minority_share">Minority Share</option>
+              <option value="pct_housing_pre_1950">Pre-1950 Housing Share</option>
+            </select>
+          </label>
+          <label class="checkbox">
+            <input id="map-jitter" type="checkbox" checked />
+            Spread overlapping points
+          </label>
+        </div>
         <div id="risk-map"></div>
-        <p class="hint">Click a point to load block details.</p>
+        <div id="map-legend" class="legend"></div>
+        <p class="hint">
+          Click a point to load block details. Points are NJ block-group centroids; clusters near Philadelphia are
+          Camden/Gloucester NJ areas.
+        </p>
       </section>
 
       <section id="tab-detail" class="tab">
+        <div class="detail-toolbar">
+          <label>
+            Choose Area
+            <select id="detail-geoid"></select>
+          </label>
+          <div class="detail-nav">
+            <button id="detail-prev" type="button">Prev</button>
+            <button id="detail-next" type="button">Next</button>
+          </div>
+        </div>
         <div id="detail-content"></div>
       </section>
 

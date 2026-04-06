@@ -1,16 +1,34 @@
+const MAP_METRICS = {
+  risk_score: {
+    label: "Risk Score",
+    format: (v) => `${(Number(v) * 100).toFixed(1)}%`,
+  },
+  risk_uncertainty: {
+    label: "Uncertainty",
+    format: (v) => Number(v).toFixed(3),
+  },
+  minority_share: {
+    label: "Minority Share",
+    format: (v) => `${(Number(v) * 100).toFixed(1)}%`,
+  },
+  pct_housing_pre_1950: {
+    label: "Pre-1950 Housing Share",
+    format: (v) => `${(Number(v) * 100).toFixed(1)}%`,
+  },
+};
+
+const MAP_COLORS = ["#2b83ba", "#7fcdbb", "#ffffbf", "#fdae61", "#d7191c"];
+const NO_DATA_COLOR = "#9aa5b1";
+const DEFAULT_MAP_METRIC = "risk_score";
+
 const state = {
   dashboard: null,
   benchmark: null,
   selectedGeoid: null,
+  sortedRows: [],
   map: null,
   markersLayer: null,
 };
-
-function colorForRisk(score) {
-  if (score >= 0.75) return "#a4133c";
-  if (score >= 0.45) return "#cc4b00";
-  return "#2a9d8f";
-}
 
 function fmtMoney(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -21,6 +39,79 @@ function qs() {
   const fairness = document.getElementById("fairness").value;
   const optimizer = document.getElementById("optimizer").value;
   return `budget=${budget}&fairness_tolerance=${fairness}&optimizer_method=${optimizer}`;
+}
+
+function normalize(value, min, max) {
+  if (!Number.isFinite(value)) return 0;
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return 0;
+  if (max <= min) return 0.5;
+  return Math.max(0, Math.min(1, (value - min) / (max - min)));
+}
+
+function quantile(sortedValues, q) {
+  if (!sortedValues.length) return NaN;
+  if (sortedValues.length === 1) return sortedValues[0];
+  const pos = (sortedValues.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  const lower = sortedValues[base];
+  const upper = sortedValues[Math.min(base + 1, sortedValues.length - 1)];
+  return lower + rest * (upper - lower);
+}
+
+function metricStats(rows, metricKey) {
+  const values = rows
+    .map((row) => Number(row?.[metricKey]))
+    .filter((v) => Number.isFinite(v))
+    .sort((a, b) => a - b);
+  if (!values.length) return null;
+  return {
+    min: values[0],
+    max: values[values.length - 1],
+    q20: quantile(values, 0.2),
+    q40: quantile(values, 0.4),
+    q60: quantile(values, 0.6),
+    q80: quantile(values, 0.8),
+  };
+}
+
+function metricBin(value, stats) {
+  if (!stats || !Number.isFinite(value)) return -1;
+  if (stats.max <= stats.min) return 2;
+  if (value <= stats.q20) return 0;
+  if (value <= stats.q40) return 1;
+  if (value <= stats.q60) return 2;
+  if (value <= stats.q80) return 3;
+  return 4;
+}
+
+function mapColor(value, stats) {
+  const bin = metricBin(value, stats);
+  if (bin < 0) return NO_DATA_COLOR;
+  return MAP_COLORS[bin];
+}
+
+function stableJitter(seed, salt, spread = 0.006) {
+  const s = `${seed}|${salt}`;
+  let hash = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    hash = (hash << 5) - hash + s.charCodeAt(i);
+    hash |= 0;
+  }
+  const scaled = ((hash >>> 0) % 2001) / 1000 - 1.0;
+  return scaled * spread;
+}
+
+function sortedRows(rows) {
+  return [...rows].sort((a, b) => {
+    const countyA = String(a.county || "");
+    const countyB = String(b.county || "");
+    if (countyA !== countyB) return countyA.localeCompare(countyB);
+    const muniA = String(a.municipality || "");
+    const muniB = String(b.municipality || "");
+    if (muniA !== muniB) return muniA.localeCompare(muniB);
+    return String(a.geoid).localeCompare(String(b.geoid));
+  });
 }
 
 async function fetchDashboard() {
@@ -37,40 +128,100 @@ async function fetchBenchmark() {
 
 function ensureMap() {
   if (state.map) return;
-  state.map = L.map("risk-map").setView([39.85, -74.7], 8);
+  state.map = L.map("risk-map", { preferCanvas: true }).setView([40.04, -74.45], 8);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(state.map);
   state.markersLayer = L.layerGroup().addTo(state.map);
 }
 
+function renderMapLegend(metricKey, stats) {
+  const metric = MAP_METRICS[metricKey] || MAP_METRICS[DEFAULT_MAP_METRIC];
+  const legend = document.getElementById("map-legend");
+  if (!stats) {
+    legend.innerHTML = `<div class="legend-title">${metric.label}</div><div class="muted">No numeric values available for this layer.</div>`;
+    return;
+  }
+  if (stats.max <= stats.min) {
+    legend.innerHTML = `
+      <div class="legend-title">${metric.label}</div>
+      <div class="legend-item"><span class="legend-swatch" style="background:${MAP_COLORS[2]};"></span>All values ${metric.format(stats.min)}</div>
+    `;
+    return;
+  }
+
+  const bounds = [stats.min, stats.q20, stats.q40, stats.q60, stats.q80, stats.max];
+  const items = [];
+  for (let i = 0; i < MAP_COLORS.length; i += 1) {
+    const low = bounds[i];
+    const high = bounds[i + 1];
+    items.push(`
+      <div class="legend-item">
+        <span class="legend-swatch" style="background:${MAP_COLORS[i]};"></span>
+        ${metric.format(low)} - ${metric.format(high)}
+      </div>
+    `);
+  }
+  items.push(`
+    <div class="legend-item">
+      <span class="legend-swatch" style="background:${NO_DATA_COLOR};"></span>
+      No data
+    </div>
+  `);
+
+  legend.innerHTML = `
+    <div class="legend-title">${metric.label} (quantile bins)</div>
+    <div class="legend-grid">${items.join("")}</div>
+  `;
+}
+
 function renderMap() {
   ensureMap();
   state.markersLayer.clearLayers();
   const rows = state.dashboard?.rows || [];
-  for (const row of rows) {
-    const lat = Number(row.lat);
-    const lon = Number(row.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+  const metricKey = document.getElementById("map-metric")?.value || DEFAULT_MAP_METRIC;
+  const metric = MAP_METRICS[metricKey] || MAP_METRICS[DEFAULT_MAP_METRIC];
+  const stats = metricStats(rows, metricKey);
+  const riskStats = metricStats(rows, "risk_score");
+  const useJitter = Boolean(document.getElementById("map-jitter")?.checked);
 
+  for (const row of rows) {
+    const lat0 = Number(row.lat);
+    const lon0 = Number(row.lon);
+    if (!Number.isFinite(lat0) || !Number.isFinite(lon0)) continue;
+    const geoid = String(row.geoid);
+    const lat = lat0 + (useJitter ? stableJitter(geoid, "lat") : 0);
+    const lon = lon0 + (useJitter ? stableJitter(geoid, "lon") : 0);
+    const metricValue = Number(row?.[metricKey]);
+    const riskNorm = normalize(Number(row.risk_score), riskStats?.min, riskStats?.max);
+    const baseRadius = 4 + riskNorm * 5;
+    const selected = geoid === String(state.selectedGeoid);
     const marker = L.circleMarker([lat, lon], {
-      radius: 8,
-      fillColor: colorForRisk(Number(row.risk_score)),
-      color: "#0b132b",
-      weight: 1,
-      fillOpacity: 0.85,
+      radius: selected ? baseRadius + 2 : baseRadius,
+      fillColor: mapColor(metricValue, stats),
+      color: selected ? "#111827" : "#0b132b",
+      weight: selected ? 2.2 : 0.9,
+      fillOpacity: selected ? 0.96 : 0.78,
     });
     marker.bindTooltip(
-      `${row.municipality || row.geoid}<br/>Risk ${(Number(row.risk_score) * 100).toFixed(1)}%`,
+      `
+        ${row.municipality || geoid}<br/>
+        ${row.county || "Unknown"} County<br/>
+        ${metric.label}: ${Number.isFinite(metricValue) ? metric.format(metricValue) : "N/A"}<br/>
+        Risk: ${(Number(row.risk_score) * 100).toFixed(1)}%
+      `,
       { direction: "top" },
     );
     marker.on("click", () => {
-      state.selectedGeoid = String(row.geoid);
+      state.selectedGeoid = geoid;
       renderDetail();
+      renderMap();
       activateTab("tab-detail");
     });
     marker.addTo(state.markersLayer);
   }
+
+  renderMapLegend(metricKey, stats);
 }
 
 function trendSvg(values) {
@@ -98,15 +249,53 @@ function trendSvg(values) {
   `;
 }
 
+function populateDetailSelector() {
+  const select = document.getElementById("detail-geoid");
+  const rows = state.sortedRows;
+  select.replaceChildren();
+  for (const row of rows) {
+    const option = document.createElement("option");
+    option.value = String(row.geoid);
+    option.textContent = `${row.county || "Unknown"} • ${row.municipality || "Area"} (${row.geoid})`;
+    select.appendChild(option);
+  }
+  if (rows.length) {
+    const selected = rows.some((row) => String(row.geoid) === String(state.selectedGeoid))
+      ? String(state.selectedGeoid)
+      : String(rows[0].geoid);
+    state.selectedGeoid = selected;
+    select.value = selected;
+  }
+}
+
+function selectRelativeArea(step) {
+  const rows = state.sortedRows;
+  if (rows.length < 2) return;
+  const currentIdx = Math.max(
+    0,
+    rows.findIndex((row) => String(row.geoid) === String(state.selectedGeoid)),
+  );
+  const nextIdx = (currentIdx + step + rows.length) % rows.length;
+  state.selectedGeoid = String(rows[nextIdx].geoid);
+  renderDetail();
+  renderMap();
+}
+
 function renderDetail() {
   const container = document.getElementById("detail-content");
-  const rows = state.dashboard?.rows || [];
+  const rows = state.sortedRows;
   if (!rows.length) {
     container.innerHTML = `<div class="panel">No data loaded.</div>`;
     return;
   }
   const row = rows.find((r) => String(r.geoid) === String(state.selectedGeoid)) || rows[0];
   state.selectedGeoid = String(row.geoid);
+  document.getElementById("detail-geoid").value = state.selectedGeoid;
+
+  const prevBtn = document.getElementById("detail-prev");
+  const nextBtn = document.getElementById("detail-next");
+  prevBtn.disabled = rows.length < 2;
+  nextBtn.disabled = rows.length < 2;
 
   const drivers = row.top_drivers || [];
   const brief = state.dashboard.policy_briefs?.[String(row.geoid)] || "No policy brief for this block under current constraints.";
@@ -256,8 +445,12 @@ async function refreshAll() {
   if (!state.benchmark) await fetchBenchmark();
 
   const rows = state.dashboard?.rows || [];
+  state.sortedRows = sortedRows(rows);
   if (!rows.length) return;
-  if (!state.selectedGeoid) state.selectedGeoid = String(rows[0].geoid);
+
+  const exists = rows.some((r) => String(r.geoid) === String(state.selectedGeoid));
+  if (!exists) state.selectedGeoid = String(rows[0].geoid);
+  populateDetailSelector();
 
   renderMap();
   renderDetail();
@@ -269,6 +462,7 @@ function wireEvents() {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => activateTab(btn.dataset.tab));
   });
+
   document.getElementById("refresh-btn").addEventListener("click", () => refreshAll().catch(console.error));
   document.getElementById("budget").addEventListener("input", () => {
     document.getElementById("budget-label").textContent = fmtMoney(document.getElementById("budget").value);
@@ -276,6 +470,15 @@ function wireEvents() {
   document.getElementById("fairness").addEventListener("input", () => {
     document.getElementById("fairness-label").textContent = Number(document.getElementById("fairness").value).toFixed(2);
   });
+  document.getElementById("map-metric").addEventListener("change", () => renderMap());
+  document.getElementById("map-jitter").addEventListener("change", () => renderMap());
+  document.getElementById("detail-geoid").addEventListener("change", (event) => {
+    state.selectedGeoid = String(event.target.value || "");
+    renderDetail();
+    renderMap();
+  });
+  document.getElementById("detail-prev").addEventListener("click", () => selectRelativeArea(-1));
+  document.getElementById("detail-next").addEventListener("click", () => selectRelativeArea(1));
 }
 
 wireEvents();
