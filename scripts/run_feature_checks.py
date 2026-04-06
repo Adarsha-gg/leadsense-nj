@@ -9,7 +9,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from leadsense_nj.config import DataConfig
 from leadsense_nj.baseline import fit_tabular_logistic
+from leadsense_nj.explainability import top_feature_drivers
 from leadsense_nj.optimization import optimize_replacement_plan
+from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.target import with_elevated_risk_label
 from leadsense_nj.uncertainty import expected_calibration_error, train_bootstrap_ensemble
@@ -107,9 +109,39 @@ def run_feature_05_checks() -> None:
     print(f"Total cost: {summary.total_cost:.2f} / Budget: {summary.budget:.2f}")
 
 
+def run_feature_06_checks() -> None:
+    df = with_elevated_risk_label(build_feature_table())
+    model, _ = fit_tabular_logistic(df, epochs=700, learning_rate=0.1)
+    ensemble = train_bootstrap_ensemble(df, n_models=12, epochs=300, learning_rate=0.1, seed=17)
+    mean, std = ensemble.predict_mean_std(df)
+
+    row = df.iloc[0]
+    drivers = top_feature_drivers(model, row, top_k=3)
+    brief = generate_policy_brief(
+        geoid=str(row["geoid"]),
+        county=str(row["county"]),
+        municipality=str(row["municipality"]),
+        risk_score=float(mean[0]),
+        uncertainty_std=float(std[0]),
+        top_drivers=drivers,
+        replacement_rank=1,
+        replacement_cost=12500.0,
+    )
+    if len(drivers) != 3:
+        raise RuntimeError("F06 failed: top driver extraction did not return 3 drivers.")
+    if "Immediate action" not in brief or "Long-term action" not in brief:
+        raise RuntimeError("F06 failed: policy brief is missing required action sections.")
+    if len(brief) < 250:
+        raise RuntimeError("F06 failed: policy brief too short to be actionable.")
+
+    print("F06 checks passed.")
+    print(f"Policy brief length: {len(brief)} characters")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
     run_feature_03_checks()
     run_feature_04_checks()
     run_feature_05_checks()
+    run_feature_06_checks()

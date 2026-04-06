@@ -78,7 +78,18 @@
 
 ## F06 - Explainability + Policy Brief
 
-- Status: `pending`
+- Status: `completed`
+- Scope:
+  - Linear contribution explainability for baseline model features
+  - Top driver extraction utility
+  - Offline policy brief generator with required action sections
+  - Feature-check integration for explainability and brief quality
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes
+- Verification:
+  - `python -m pytest -q` -> `20 passed`
+  - `python scripts/run_feature_checks.py` -> `F06 checks passed`
 
 ## F07 - Demo App
 
