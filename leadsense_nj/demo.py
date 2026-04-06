@@ -6,8 +6,14 @@ import pandas as pd
 
 from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.explainability import top_feature_drivers
-from leadsense_nj.optimization import OptimizationSummary, optimize_replacement_plan
+from leadsense_nj.metrics import ModelVsHistoricalMetrics, compute_model_vs_historical_metrics
+from leadsense_nj.optimization import (
+    OptimizationSummary,
+    optimize_replacement_plan,
+    optimize_replacement_plan_ilp,
+)
 from leadsense_nj.policy_brief import generate_policy_brief
+from leadsense_nj.preprocessing import impute_missing_values
 from leadsense_nj.target import with_elevated_risk_label
 from leadsense_nj.uncertainty import train_bootstrap_ensemble
 
@@ -18,6 +24,7 @@ class DemoSnapshot:
     selected_df: pd.DataFrame
     optimization_summary: OptimizationSummary
     policy_briefs: dict[str, str]
+    comparison_metrics: ModelVsHistoricalMetrics
 
 
 def build_demo_snapshot(
@@ -26,8 +33,10 @@ def build_demo_snapshot(
     budget: float = 35000.0,
     fairness_tolerance: float = 0.05,
     min_county_coverage: int = 0,
+    optimizer_method: str = "ilp",
 ) -> DemoSnapshot:
-    labeled = with_elevated_risk_label(df)
+    cleaned = impute_missing_values(df)
+    labeled = with_elevated_risk_label(cleaned)
     model, _ = fit_tabular_logistic(labeled, epochs=700, learning_rate=0.1)
     ensemble = train_bootstrap_ensemble(labeled, n_models=12, epochs=350, learning_rate=0.1, seed=19)
     mean, std = ensemble.predict_mean_std(labeled)
@@ -38,12 +47,20 @@ def build_demo_snapshot(
     scored["replacement_cost"] = 10000 + (scored["pct_housing_pre_1950"] * 8000) + (scored["lead_90p_ppb"] * 200)
     scored["minority_share"] = scored["poverty_rate"].clip(0.0, 1.0)
 
-    selected, summary = optimize_replacement_plan(
-        scored,
-        budget=budget,
-        fairness_tolerance=fairness_tolerance,
-        min_county_coverage=min_county_coverage,
-    )
+    if optimizer_method == "ilp":
+        selected, summary = optimize_replacement_plan_ilp(
+            scored,
+            budget=budget,
+            fairness_tolerance=fairness_tolerance,
+            min_county_coverage=min_county_coverage,
+        )
+    else:
+        selected, summary = optimize_replacement_plan(
+            scored,
+            budget=budget,
+            fairness_tolerance=fairness_tolerance,
+            min_county_coverage=min_county_coverage,
+        )
 
     policy_briefs: dict[str, str] = {}
     if not selected.empty:
@@ -64,9 +81,12 @@ def build_demo_snapshot(
             )
             policy_briefs[geoid] = brief
 
+    comparison_metrics = compute_model_vs_historical_metrics(scored, model_threshold=0.5, ece_bins=5)
+
     return DemoSnapshot(
         scored_df=scored.sort_values("risk_score", ascending=False).reset_index(drop=True),
         selected_df=selected.reset_index(drop=True),
         optimization_summary=summary,
         policy_briefs=policy_briefs,
+        comparison_metrics=comparison_metrics,
     )

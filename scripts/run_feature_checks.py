@@ -11,9 +11,10 @@ from leadsense_nj.config import DataConfig
 from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.demo import build_demo_snapshot
 from leadsense_nj.explainability import top_feature_drivers
-from leadsense_nj.optimization import optimize_replacement_plan
+from leadsense_nj.optimization import optimize_replacement_plan, optimize_replacement_plan_ilp
 from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
+from leadsense_nj.research import run_model_research_benchmark
 from leadsense_nj.target import with_elevated_risk_label
 from leadsense_nj.uncertainty import expected_calibration_error, train_bootstrap_ensemble
 
@@ -109,6 +110,16 @@ def run_feature_05_checks() -> None:
     print(f"Selected blocks: {summary.selected_count}")
     print(f"Total cost: {summary.total_cost:.2f} / Budget: {summary.budget:.2f}")
 
+    selected_ilp, summary_ilp = optimize_replacement_plan_ilp(
+        scored,
+        budget=35000,
+        fairness_tolerance=0.05,
+        min_county_coverage=0,
+    )
+    if summary_ilp.total_cost > summary_ilp.budget + 1e-6:
+        raise RuntimeError("F05 failed: ILP optimization exceeded budget.")
+    print(f"ILP selected blocks: {len(selected_ilp)} | cost: {summary_ilp.total_cost:.2f}")
+
 
 def run_feature_06_checks() -> None:
     df = with_elevated_risk_label(build_feature_table())
@@ -141,17 +152,50 @@ def run_feature_06_checks() -> None:
 
 def run_feature_07_checks() -> None:
     df = build_feature_table()
-    snapshot = build_demo_snapshot(df, budget=35000, fairness_tolerance=0.05, min_county_coverage=0)
+    snapshot = build_demo_snapshot(
+        df,
+        budget=35000,
+        fairness_tolerance=0.05,
+        min_county_coverage=0,
+        optimizer_method="ilp",
+    )
     if snapshot.scored_df.empty:
         raise RuntimeError("F07 failed: demo snapshot has empty scored table.")
     if "risk_score" not in snapshot.scored_df.columns:
         raise RuntimeError("F07 failed: risk_score missing in demo snapshot.")
     if snapshot.optimization_summary.total_cost > snapshot.optimization_summary.budget + 1e-6:
         raise RuntimeError("F07 failed: demo snapshot optimization exceeds budget.")
+    if not (0.0 <= snapshot.comparison_metrics.historical.accuracy <= 1.0):
+        raise RuntimeError("F07 failed: historical accuracy out of range.")
+    if not (0.0 <= snapshot.comparison_metrics.model.accuracy <= 1.0):
+        raise RuntimeError("F07 failed: model accuracy out of range.")
+    if not (0.0 <= snapshot.comparison_metrics.model_ece <= 1.0):
+        raise RuntimeError("F07 failed: model ECE out of range.")
 
     print("F07 checks passed.")
     print(f"Snapshot rows: {len(snapshot.scored_df)}")
     print(f"Policy briefs: {len(snapshot.policy_briefs)}")
+    print(
+        f"Historical acc: {snapshot.comparison_metrics.historical.accuracy:.3f} | "
+        f"Model acc: {snapshot.comparison_metrics.model.accuracy:.3f}"
+    )
+
+
+def run_feature_08_checks() -> None:
+    df = build_feature_table()
+    report = run_model_research_benchmark(df, n_splits=3, threshold=0.5, random_state=42)
+    if report["n_folds"] < 2:
+        raise RuntimeError("F08 failed: insufficient CV folds.")
+    for model_key in ["historical", "fusion", "graph"]:
+        acc = report[model_key]["accuracy"]["mean"]
+        if not (0.0 <= acc <= 1.0):
+            raise RuntimeError(f"F08 failed: {model_key} accuracy out of range.")
+    print("F08 checks passed.")
+    print(
+        f"Historical acc mean: {report['historical']['accuracy']['mean']:.3f} | "
+        f"Fusion acc mean: {report['fusion']['accuracy']['mean']:.3f} | "
+        f"Graph acc mean: {report['graph']['accuracy']['mean']:.3f}"
+    )
 
 
 if __name__ == "__main__":
@@ -162,3 +206,4 @@ if __name__ == "__main__":
     run_feature_05_checks()
     run_feature_06_checks()
     run_feature_07_checks()
+    run_feature_08_checks()

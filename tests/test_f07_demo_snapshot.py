@@ -33,3 +33,14 @@ def test_build_demo_snapshot_returns_expected_components() -> None:
     assert "risk_uncertainty" in snapshot.scored_df.columns
     assert snapshot.optimization_summary.total_cost <= snapshot.optimization_summary.budget
     assert isinstance(snapshot.policy_briefs, dict)
+    assert 0.0 <= snapshot.comparison_metrics.historical.accuracy <= 1.0
+    assert 0.0 <= snapshot.comparison_metrics.model.accuracy <= 1.0
+
+
+def test_build_demo_snapshot_handles_missing_numeric_inputs() -> None:
+    df = _sample_df()
+    df.loc[0, "lead_90p_ppb"] = None
+    df.loc[1, "distance_to_tri_km"] = None
+    snapshot = build_demo_snapshot(df, budget=35000)
+    assert snapshot.scored_df["risk_score"].isna().sum() == 0
+    assert snapshot.scored_df["replacement_cost"].isna().sum() == 0

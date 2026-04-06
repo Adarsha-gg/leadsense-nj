@@ -1,7 +1,7 @@
-geoid,county,municipality,median_income,pct_housing_pre_1950,poverty_rate,children_under_6_rate,lead_90p_ppb,ph_mean,hardness_mg_l,chlorine_residual_mg_l,distance_to_tri_km,winter_freeze_thaw_days,median_housing_year,alkalinity_mg_l,pws_action_level_exceedance_5y,pws_any_sample_gt15_3y
-340010001001,Atlantic,Atlantic City,42000,0.48,0.27,0.09,11.2,6.7,104,1.2,2.4,42,1946,28,0,1
-340030010002,Bergen,Hackensack,81500,0.23,0.11,0.06,5.1,7.3,126,1.8,5.2,37,1968,56,0,0
-340050023001,Burlington,Mount Laurel,97000,0.17,0.07,0.05,3.4,7.6,140,2.1,9.4,33,1985,62,0,0
-340070045003,Camden,Camden,38500,0.53,0.31,0.11,13.8,6.5,98,1.0,1.6,44,1938,24,1,1
-340090112001,Cape May,Middle Township,71000,0.29,0.14,0.07,,7.1,132,1.7,7.8,36,1958,48,0,0
-340110008002,Cumberland,Bridgeton,45000,0.41,0.24,0.10,9.7,6.8,,1.3,3.9,41,1942,27,0,0
+geoid,county,municipality,lat,lon,median_income,pct_housing_pre_1950,poverty_rate,children_under_6_rate,lead_90p_ppb,ph_mean,hardness_mg_l,chlorine_residual_mg_l,distance_to_tri_km,winter_freeze_thaw_days,median_housing_year,alkalinity_mg_l,pws_action_level_exceedance_5y,pws_any_sample_gt15_3y,q1_lead_ppb,q2_lead_ppb,q3_lead_ppb,q4_lead_ppb,q5_lead_ppb,q6_lead_ppb,q7_lead_ppb,q8_lead_ppb
+340010001001,Atlantic,Atlantic City,39.3643,-74.4229,42000,0.48,0.27,0.09,11.2,6.7,104,1.2,2.4,42,1946,28,0,1,12.8,11.9,10.7,9.8,11.3,12.1,10.9,11.5
+340030010002,Bergen,Hackensack,40.8859,-74.0435,81500,0.23,0.11,0.06,5.1,7.3,126,1.8,5.2,37,1968,56,0,0,5.6,5.1,4.8,4.3,5.0,4.6,4.9,5.2
+340050023001,Burlington,Mount Laurel,39.9340,-74.8910,97000,0.17,0.07,0.05,3.4,7.6,140,2.1,9.4,33,1985,62,0,0,3.9,3.5,3.4,3.2,3.1,3.6,3.3,3.4
+340070045003,Camden,Camden,39.9259,-75.1196,38500,0.53,0.31,0.11,13.8,6.5,98,1.0,1.6,44,1938,24,1,1,14.7,13.9,13.1,12.8,14.2,13.6,13.0,13.4
+340090112001,Cape May,Middle Township,39.0800,-74.8238,71000,0.29,0.14,0.07,,7.1,132,1.7,7.8,36,1958,48,0,0,6.4,6.1,5.8,5.6,5.9,5.7,6.0,5.8
+340110008002,Cumberland,Bridgeton,39.4273,-75.2341,45000,0.41,0.24,0.10,9.7,6.8,,1.3,3.9,41,1942,27,0,0,10.1,9.6,9.2,8.7,9.5,9.1,8.9,9.3

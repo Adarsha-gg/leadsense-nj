@@ -104,3 +104,21 @@
 - Verification:
   - `python -m pytest -q` -> `21 passed`
   - `python scripts/run_feature_checks.py` -> `F07 checks passed`
+
+## F08 - Research Benchmark Stack
+
+- Status: `completed`
+- Scope:
+  - Multimodal fusion feature pipeline and trainable model
+  - Graph-enhanced risk model with KNN topology and message aggregation
+  - ILP optimizer path with fallback
+  - Spatial cross-validation benchmark comparing historical/fusion/graph
+  - Research artifact generation script
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes including F08
+  - `python scripts/run_research_benchmark.py` writes JSON/Markdown artifacts
+- Verification:
+  - `python -m pytest -q` -> `34 passed`
+  - `python scripts/run_feature_checks.py` -> `F08 checks passed`
+  - `python scripts/run_research_benchmark.py` -> wrote benchmark artifacts
