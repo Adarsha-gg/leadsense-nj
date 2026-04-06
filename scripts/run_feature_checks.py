@@ -9,6 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from leadsense_nj.config import DataConfig
 from leadsense_nj.baseline import fit_tabular_logistic
+from leadsense_nj.optimization import optimize_replacement_plan
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.target import with_elevated_risk_label
 from leadsense_nj.uncertainty import expected_calibration_error, train_bootstrap_ensemble
@@ -79,8 +80,36 @@ def run_feature_04_checks() -> None:
     print(f"ECE: {ece:.4f}")
 
 
+def run_feature_05_checks() -> None:
+    df = with_elevated_risk_label(build_feature_table())
+    model, _ = fit_tabular_logistic(df, epochs=700, learning_rate=0.1)
+    scored = df.copy()
+    scored["risk_score"] = model.predict_proba(scored)
+    scored["replacement_cost"] = 10000 + (scored["pct_housing_pre_1950"] * 8000) + (scored["lead_90p_ppb"] * 200)
+    scored["minority_share"] = scored["poverty_rate"].clip(0.0, 1.0)
+
+    selected, summary = optimize_replacement_plan(
+        scored,
+        budget=35000,
+        fairness_tolerance=0.05,
+        min_county_coverage=0,
+    )
+
+    if summary.total_cost > summary.budget + 1e-6:
+        raise RuntimeError("F05 failed: optimization exceeded budget.")
+    if summary.selected_count <= 0:
+        raise RuntimeError("F05 failed: optimization selected no block groups.")
+    if summary.achieved_minority_share < summary.fairness_target - 1e-6:
+        raise RuntimeError("F05 failed: fairness target not achieved.")
+
+    print("F05 checks passed.")
+    print(f"Selected blocks: {summary.selected_count}")
+    print(f"Total cost: {summary.total_cost:.2f} / Budget: {summary.budget:.2f}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
     run_feature_03_checks()
     run_feature_04_checks()
+    run_feature_05_checks()

@@ -63,7 +63,18 @@
 
 ## F05 - Fairness Optimizer
 
-- Status: `pending`
+- Status: `completed`
+- Scope:
+  - Budgeted replacement prioritization engine
+  - Fairness target enforcement using minority-share threshold
+  - Optional county coverage seed step
+  - Feature-check integration for budget and fairness guarantees
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes
+- Verification:
+  - `python -m pytest -q` -> `17 passed`
+  - `python scripts/run_feature_checks.py` -> `F05 checks passed`
 
 ## F06 - Explainability + Policy Brief
 
