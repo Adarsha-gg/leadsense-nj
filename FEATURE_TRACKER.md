@@ -48,7 +48,18 @@
 
 ## F04 - Uncertainty Layer
 
-- Status: `pending`
+- Status: `completed`
+- Scope:
+  - Bootstrapped uncertainty ensemble over baseline predictor
+  - Mean/std risk output and confidence interval generation
+  - Expected Calibration Error (ECE) metric
+  - Feature-check integration for uncertainty and calibration bounds
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes
+- Verification:
+  - `python -m pytest -q` -> `14 passed`
+  - `python scripts/run_feature_checks.py` -> `F04 checks passed`
 
 ## F05 - Fairness Optimizer
 

@@ -11,6 +11,7 @@ from leadsense_nj.config import DataConfig
 from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.target import with_elevated_risk_label
+from leadsense_nj.uncertainty import expected_calibration_error, train_bootstrap_ensemble
 
 
 def run_feature_01_checks() -> None:
@@ -58,7 +59,28 @@ def run_feature_03_checks() -> None:
     print(f"Training accuracy: {accuracy:.3f}")
 
 
+def run_feature_04_checks() -> None:
+    df = with_elevated_risk_label(build_feature_table())
+    ensemble = train_bootstrap_ensemble(df, n_models=12, epochs=350, learning_rate=0.1, seed=11)
+    mean, std = ensemble.predict_mean_std(df)
+    ece = expected_calibration_error(df["risk_label"].to_numpy(), mean, n_bins=5)
+
+    if not ((mean >= 0.0) & (mean <= 1.0)).all():
+        raise RuntimeError("F04 failed: uncertainty mean predictions out of range [0, 1].")
+    if not (std >= 0.0).all():
+        raise RuntimeError("F04 failed: uncertainty std values below 0.")
+    if float(std.mean()) <= 0.0:
+        raise RuntimeError("F04 failed: uncertainty collapsed to zero across all rows.")
+    if not (0.0 <= ece <= 1.0):
+        raise RuntimeError(f"F04 failed: ECE out of valid range: {ece:.3f}")
+
+    print("F04 checks passed.")
+    print(f"Average uncertainty std: {float(std.mean()):.4f}")
+    print(f"ECE: {ece:.4f}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
     run_feature_03_checks()
+    run_feature_04_checks()
