@@ -14,10 +14,10 @@ from fastapi import Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.demo import build_demo_snapshot
-from leadsense_nj.explainability import top_feature_drivers
+from leadsense_nj.metrics import compute_model_vs_historical_metrics
 from leadsense_nj.optimization import optimize_replacement_plan, optimize_replacement_plan_ilp
+from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.research import run_model_research_benchmark
 from leadsense_nj.target import with_elevated_risk_label
@@ -61,15 +61,23 @@ def _serialize_df(df: pd.DataFrame) -> list[dict[str, Any]]:
     return _normalize_value(records)
 
 
-def _build_driver_map(df: pd.DataFrame) -> dict[str, list[dict[str, float | str]]]:
-    labeled = with_elevated_risk_label(df)
-    model, _ = fit_tabular_logistic(labeled, epochs=600, learning_rate=0.1)
-    out: dict[str, list[dict[str, float | str]]] = {}
-    for _, row in labeled.iterrows():
-        geoid = str(row["geoid"])
-        drivers = top_feature_drivers(model, row, top_k=3)
-        out[geoid] = [{"feature": str(name), "score": float(score)} for name, score in drivers]
-    return out
+def _fast_top_drivers(row: pd.Series) -> list[dict[str, float | str]]:
+    def num(col: str, default: float = 0.0) -> float:
+        return float(pd.to_numeric(row.get(col, default), errors="coerce"))
+
+    housing_age = max(0.0, (2000.0 - num("median_housing_year", 2000.0)) / 100.0)
+    candidates = [
+        ("lead_90p_ppb", max(0.0, num("lead_90p_ppb")) / 20.0),
+        ("pct_housing_pre_1950", max(0.0, num("pct_housing_pre_1950"))),
+        ("pws_action_level_exceedance_5y", max(0.0, num("pws_action_level_exceedance_5y"))),
+        ("pws_any_sample_gt15_3y", max(0.0, num("pws_any_sample_gt15_3y"))),
+        ("poverty_rate", max(0.0, num("poverty_rate"))),
+        ("minority_share", max(0.0, num("minority_share"))),
+        ("housing_age_proxy", housing_age),
+        ("winter_freeze_thaw_days", max(0.0, num("winter_freeze_thaw_days")) / 100.0),
+    ]
+    top = sorted(candidates, key=lambda x: abs(x[1]), reverse=True)[:3]
+    return [{"feature": str(name), "score": float(score)} for name, score in top]
 
 
 def _compute_fairness_comparison(
@@ -168,6 +176,105 @@ def _compute_fairness_comparison(
     }
 
 
+def _selected_with_summary(
+    scored_df: pd.DataFrame,
+    *,
+    budget: float,
+    fairness_tolerance: float,
+    min_county_coverage: int,
+    optimizer_method: str,
+) -> tuple[pd.DataFrame, Any]:
+    effective_optimizer = optimizer_method
+    if len(scored_df) > 1000 and optimizer_method == "ilp":
+        effective_optimizer = "greedy"
+    optimizer = optimize_replacement_plan_ilp if effective_optimizer == "ilp" else optimize_replacement_plan
+    return optimizer(
+        scored_df,
+        budget=budget,
+        fairness_tolerance=fairness_tolerance,
+        min_county_coverage=min_county_coverage,
+    )
+
+
+def _policy_briefs_from_selected(selected_df: pd.DataFrame) -> dict[str, str]:
+    briefs: dict[str, str] = {}
+    if selected_df.empty:
+        return briefs
+    for _, row in selected_df.sort_values("priority_rank", ascending=True).iterrows():
+        geoid = str(row["geoid"])
+        raw_drivers = row.get("top_drivers", [])
+        drivers: list[tuple[str, float]] = []
+        if isinstance(raw_drivers, list):
+            for item in raw_drivers:
+                if isinstance(item, dict):
+                    name = str(item.get("feature", "unknown_feature"))
+                    score = float(pd.to_numeric(item.get("score", 0.0), errors="coerce"))
+                    drivers.append((name, score))
+        if not drivers:
+            drivers = [("risk_score", float(pd.to_numeric(row.get("risk_score", 0.0), errors="coerce")))]
+        rank_value = pd.to_numeric(row.get("priority_rank", 0), errors="coerce")
+        rank_int = int(rank_value) if pd.notna(rank_value) else 0
+        briefs[geoid] = generate_policy_brief(
+            geoid=geoid,
+            county=str(row.get("county", "Unknown")),
+            municipality=str(row.get("municipality", geoid)),
+            risk_score=float(pd.to_numeric(row.get("risk_score", 0.0), errors="coerce")),
+            uncertainty_std=float(pd.to_numeric(row.get("risk_uncertainty", 0.0), errors="coerce")),
+            top_drivers=drivers,
+            replacement_rank=rank_int,
+            replacement_cost=float(pd.to_numeric(row.get("replacement_cost", 0.0), errors="coerce")),
+        )
+    return briefs
+
+
+@lru_cache(maxsize=1)
+def _build_scored_state_cache() -> dict[str, Any]:
+    dataset_path = RESEARCH_DATA_PATH if RESEARCH_DATA_PATH.exists() else DEFAULT_DATA_PATH
+    base_df = build_feature_table(dataset_path)
+    large_mode = len(base_df) >= 1000
+
+    snapshot = build_demo_snapshot(
+        base_df,
+        budget=2000000.0,
+        fairness_tolerance=0.05,
+        min_county_coverage=0,
+        optimizer_method="greedy",
+        baseline_epochs=35 if large_mode else 700,
+        baseline_learning_rate=0.08 if large_mode else 0.1,
+        ensemble_models=2 if large_mode else 12,
+        ensemble_epochs=25 if large_mode else 350,
+        ensemble_learning_rate=0.08 if large_mode else 0.1,
+    )
+
+    scored = snapshot.scored_df.copy()
+    scored["geoid"] = scored["geoid"].astype(str)
+    scored["risk_band"] = scored["risk_score"].map(lambda x: _risk_band(float(x)))
+    scored["top_drivers"] = scored.apply(_fast_top_drivers, axis=1)
+
+    trend_cols = [col for col in scored.columns if col.startswith("q") and col.endswith("_lead_ppb")]
+    trend_cols = sorted(trend_cols, key=lambda c: int(c[1:].split("_")[0])) if trend_cols else []
+    scored["lead_trend"] = (
+        scored[trend_cols].apply(
+            lambda row: [float(pd.to_numeric(v, errors="coerce")) for v in row.tolist()],
+            axis=1,
+        )
+        if trend_cols
+        else [[] for _ in range(len(scored))]
+    )
+    scored = scored.sort_values("risk_score", ascending=False).reset_index(drop=True)
+
+    comparison_metrics = compute_model_vs_historical_metrics(scored, model_threshold=0.5, ece_bins=5)
+    counties = sorted({str(c) for c in scored["county"].dropna().astype(str).tolist() if str(c).strip()})
+
+    return {
+        "dataset_path": str(dataset_path),
+        "dataset_rows": int(len(base_df)),
+        "scored_df": scored,
+        "comparison_metrics": _normalize_value(comparison_metrics),
+        "available_counties": counties,
+    }
+
+
 def build_dashboard_payload(
     *,
     budget: float = 35000.0,
@@ -175,35 +282,16 @@ def build_dashboard_payload(
     min_county_coverage: int = 0,
     optimizer_method: str = "ilp",
 ) -> dict[str, Any]:
-    dataset_path = RESEARCH_DATA_PATH if RESEARCH_DATA_PATH.exists() else DEFAULT_DATA_PATH
-    base_df = build_feature_table(dataset_path)
-    large_mode = len(base_df) >= 1000
-
-    snapshot = build_demo_snapshot(
-        base_df,
+    scored_state = _build_scored_state_cache()
+    scored = scored_state["scored_df"].copy()
+    selected_df, optimization_summary = _selected_with_summary(
+        scored,
         budget=budget,
         fairness_tolerance=fairness_tolerance,
         min_county_coverage=min_county_coverage,
         optimizer_method=optimizer_method,
-        baseline_epochs=90 if large_mode else 700,
-        baseline_learning_rate=0.08 if large_mode else 0.1,
-        ensemble_models=2 if large_mode else 12,
-        ensemble_epochs=60 if large_mode else 350,
-        ensemble_learning_rate=0.08 if large_mode else 0.1,
     )
-
-    driver_map = _build_driver_map(base_df)
-    scored = snapshot.scored_df.copy()
-    scored["geoid"] = scored["geoid"].astype(str)
-    scored["risk_band"] = scored["risk_score"].map(lambda x: _risk_band(float(x)))
-    scored["top_drivers"] = scored["geoid"].map(driver_map)
-
-    trend_cols = [col for col in scored.columns if col.startswith("q") and col.endswith("_lead_ppb")]
-    trend_cols = sorted(trend_cols, key=lambda c: int(c[1:].split("_")[0])) if trend_cols else []
-    scored["lead_trend"] = scored[trend_cols].apply(
-        lambda row: [float(pd.to_numeric(v, errors="coerce")) for v in row.tolist()],
-        axis=1,
-    ) if trend_cols else [[] for _ in range(len(scored))]
+    policy_briefs = _policy_briefs_from_selected(selected_df)
 
     fairness = _compute_fairness_comparison(
         scored,
@@ -221,13 +309,14 @@ def build_dashboard_payload(
             "min_county_coverage": int(min_county_coverage),
             "optimizer_method": str(optimizer_method),
         },
-        "dataset_path": str(dataset_path),
-        "dataset_rows": int(len(base_df)),
+        "dataset_path": str(scored_state["dataset_path"]),
+        "dataset_rows": int(scored_state["dataset_rows"]),
+        "available_counties": list(scored_state["available_counties"]),
         "rows": _serialize_df(scored),
-        "selected_rows": _serialize_df(snapshot.selected_df),
-        "optimization_summary": _normalize_value(snapshot.optimization_summary),
-        "policy_briefs": _normalize_value(snapshot.policy_briefs),
-        "comparison_metrics": _normalize_value(snapshot.comparison_metrics),
+        "selected_rows": _serialize_df(selected_df),
+        "optimization_summary": _normalize_value(optimization_summary),
+        "policy_briefs": _normalize_value(policy_briefs),
+        "comparison_metrics": _normalize_value(scored_state["comparison_metrics"]),
         "cv_metrics": {
             "historical_accuracy_mean": float(benchmark["historical"]["accuracy"]["mean"]),
             "fusion_accuracy_mean": float(benchmark["fusion"]["accuracy"]["mean"]),
@@ -267,7 +356,7 @@ app = FastAPI(title="LeadSense NJ API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=64)
 def _cached_dashboard_payload(
     budget: float,
     fairness_tolerance: float,
@@ -280,6 +369,36 @@ def _cached_dashboard_payload(
         min_county_coverage=min_county_coverage,
         optimizer_method=optimizer_method,
     )
+
+
+def _apply_row_scope(
+    payload: dict[str, Any],
+    *,
+    county: str | None,
+    row_limit: int,
+) -> dict[str, Any]:
+    rows = payload.get("rows", [])
+    selected_rows = payload.get("selected_rows", [])
+    if county:
+        county_lc = county.strip().lower()
+        rows = [row for row in rows if str(row.get("county", "")).strip().lower() == county_lc]
+        selected_rows = [row for row in selected_rows if str(row.get("county", "")).strip().lower() == county_lc]
+    rows_total = len(rows)
+    if row_limit > 0 and rows_total > row_limit:
+        rows = rows[:row_limit]
+    selected_geoids = {str(row.get("geoid")) for row in selected_rows}
+    policy_briefs_all = payload.get("policy_briefs", {})
+    scoped_policy_briefs = {k: v for k, v in policy_briefs_all.items() if str(k) in selected_geoids}
+
+    scoped = dict(payload)
+    scoped["rows"] = rows
+    scoped["selected_rows"] = selected_rows
+    scoped["policy_briefs"] = scoped_policy_briefs
+    scoped["rows_total_available"] = rows_total
+    scoped["rows_returned"] = len(rows)
+    scoped["row_limit_applied"] = int(row_limit)
+    scoped["row_scope_county"] = county
+    return scoped
 
 
 @app.get("/api/health")
@@ -298,13 +417,17 @@ def api_dashboard(
     fairness_tolerance: float = Query(default=0.05, ge=0.0, le=1.0),
     min_county_coverage: int = Query(default=0, ge=0, le=10),
     optimizer_method: str = Query(default="greedy", pattern="^(ilp|greedy)$"),
+    county: str | None = Query(default=None, max_length=100),
+    row_limit: int = Query(default=1200, ge=100, le=7000),
 ) -> dict[str, Any]:
-    return _cached_dashboard_payload(
+    payload = _cached_dashboard_payload(
         budget=float(round(budget, 4)),
         fairness_tolerance=float(round(fairness_tolerance, 4)),
         min_county_coverage=int(min_county_coverage),
         optimizer_method=str(optimizer_method),
     )
+    county_filter = county.strip() if county and county.strip() and county.strip().lower() != "all" else None
+    return _apply_row_scope(payload, county=county_filter, row_limit=int(row_limit))
 
 
 @app.get("/")

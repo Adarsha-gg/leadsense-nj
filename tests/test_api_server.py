@@ -39,3 +39,13 @@ def test_api_endpoints_serve_dashboard_and_frontend() -> None:
     body = dash.json()
     assert "rows" in body
     assert len(body["rows"]) > 0
+
+
+def test_api_dashboard_supports_county_scoping() -> None:
+    client = TestClient(app)
+    dash = client.get("/api/dashboard", params={"county": "Essex", "row_limit": 200})
+    assert dash.status_code == 200
+    body = dash.json()
+    assert body["row_scope_county"] == "Essex"
+    assert body["rows_returned"] <= 200
+    assert all(str(row.get("county", "")).lower() == "essex" for row in body["rows"])

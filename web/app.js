@@ -20,6 +20,7 @@ const MAP_METRICS = {
 const MAP_COLORS = ["#2b83ba", "#7fcdbb", "#ffffbf", "#fdae61", "#d7191c"];
 const NO_DATA_COLOR = "#9aa5b1";
 const DEFAULT_MAP_METRIC = "risk_score";
+const MAP_ROW_LIMIT = 1200;
 
 const state = {
   dashboard: null,
@@ -38,7 +39,15 @@ function qs() {
   const budget = document.getElementById("budget").value;
   const fairness = document.getElementById("fairness").value;
   const optimizer = document.getElementById("optimizer").value;
-  return `budget=${budget}&fairness_tolerance=${fairness}&optimizer_method=${optimizer}`;
+  const county = document.getElementById("county-filter")?.value || "all";
+  const params = new URLSearchParams({
+    budget: String(budget),
+    fairness_tolerance: String(fairness),
+    optimizer_method: String(optimizer),
+    row_limit: String(MAP_ROW_LIMIT),
+  });
+  if (county && county !== "all") params.set("county", county);
+  return params.toString();
 }
 
 function normalize(value, min, max) {
@@ -112,6 +121,28 @@ function sortedRows(rows) {
     if (muniA !== muniB) return muniA.localeCompare(muniB);
     return String(a.geoid).localeCompare(String(b.geoid));
   });
+}
+
+function populateCountyFilter() {
+  const select = document.getElementById("county-filter");
+  if (!select) return;
+  const current = select.value || "all";
+  const counties = state.dashboard?.available_counties || [];
+  select.replaceChildren();
+
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "All Counties (sampled)";
+  select.appendChild(allOption);
+
+  for (const county of counties) {
+    const option = document.createElement("option");
+    option.value = String(county);
+    option.textContent = String(county);
+    select.appendChild(option);
+  }
+  const validCurrent = counties.includes(current) || current === "all";
+  select.value = validCurrent ? current : "all";
 }
 
 async function fetchDashboard() {
@@ -222,6 +253,15 @@ function renderMap() {
   }
 
   renderMapLegend(metricKey, stats);
+  const scope = document.getElementById("map-scope");
+  if (scope) {
+    const county = state.dashboard?.row_scope_county || "All counties";
+    const rowsReturned = Number(state.dashboard?.rows_returned || rows.length);
+    const rowsTotal = Number(state.dashboard?.rows_total_available || rows.length);
+    const limited = rowsReturned < rowsTotal;
+    const limitHint = limited ? ` (showing top ${rowsReturned} by risk)` : "";
+    scope.textContent = `Scope: ${county} • ${rowsReturned} loaded / ${rowsTotal} available${limitHint}`;
+  }
 }
 
 function trendSvg(values) {
@@ -442,6 +482,7 @@ async function refreshAll() {
   document.getElementById("budget-label").textContent = fmtMoney(document.getElementById("budget").value);
   document.getElementById("fairness-label").textContent = Number(document.getElementById("fairness").value).toFixed(2);
   await fetchDashboard();
+  populateCountyFilter();
   if (!state.benchmark) await fetchBenchmark();
 
   const rows = state.dashboard?.rows || [];
@@ -470,6 +511,7 @@ function wireEvents() {
   document.getElementById("fairness").addEventListener("input", () => {
     document.getElementById("fairness-label").textContent = Number(document.getElementById("fairness").value).toFixed(2);
   });
+  document.getElementById("county-filter").addEventListener("change", () => refreshAll().catch(console.error));
   document.getElementById("map-metric").addEventListener("change", () => renderMap());
   document.getElementById("map-jitter").addEventListener("change", () => renderMap());
   document.getElementById("detail-geoid").addEventListener("change", (event) => {

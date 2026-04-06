@@ -31,6 +31,12 @@
             <option value="ilp">ILP</option>
           </select>
         </label>
+        <label>
+          Map County
+          <select id="county-filter">
+            <option value="all">All Counties (sampled)</option>
+          </select>
+        </label>
         <button id="refresh-btn" type="button">Refresh</button>
       </div>
     </header>
@@ -62,6 +68,7 @@
         </div>
         <div id="risk-map"></div>
         <div id="map-legend" class="legend"></div>
+        <p id="map-scope" class="muted"></p>
         <p class="hint">
           Click a point to load block details. Points are NJ block-group centroids; clusters near Philadelphia are
           Camden/Gloucester NJ areas.
