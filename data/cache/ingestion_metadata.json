@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-04-06T17:53:26Z",
+  "acs_year": 2022,
+  "state_fips": "34",
+  "sources": {
+    "census_acs": "https://api.census.gov/data/2022/acs/acs5",
+    "epa_lcr_sample": "https://data.epa.gov/efservice/LCR_SAMPLE/PRIMACY_AGENCY_CODE/NJ/CSV",
+    "epa_lcr_sample_result": "https://data.epa.gov/efservice/LCR_SAMPLE_RESULT/PRIMACY_AGENCY_CODE/NJ/CSV",
+    "epa_violation_lead": "https://data.epa.gov/efservice/VIOLATION/PRIMACY_AGENCY_CODE/NJ/CONTAMINANT_CODE/1030/CSV"
+  },
+  "row_counts": {
+    "acs_block_groups": 6599,
+    "epa_lcr_samples": 9600,
+    "epa_lcr_sample_results": 9600,
+    "epa_lead_violations": 14,
+    "epa_pws_summary": 1405
+  }
+}

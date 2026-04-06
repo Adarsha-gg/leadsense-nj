@@ -46,6 +46,24 @@ Outputs:
 - `artifacts/research/benchmark_results.json`
 - `artifacts/research/benchmark_results.md`
 
+## Real Data Ingestion (F10)
+
+Fetches real NJ data from:
+- Census ACS block-group API
+- EPA SDWIS efservice tables (`LCR_SAMPLE`, `LCR_SAMPLE_RESULT`, lead `VIOLATION`)
+
+```bash
+python scripts/fetch_real_data.py --cache-dir data/cache --acs-year 2022 --max-violation-rows 10000
+```
+
+Outputs:
+- `data/cache/acs_nj_block_groups_2022.csv`
+- `data/cache/epa_nj_lcr_samples.csv`
+- `data/cache/epa_nj_lcr_sample_results.csv`
+- `data/cache/epa_nj_lead_violations.csv`
+- `data/cache/epa_nj_pws_lead_signals.csv`
+- `data/cache/ingestion_metadata.json`
+
 ## Demo App
 
 ```bash

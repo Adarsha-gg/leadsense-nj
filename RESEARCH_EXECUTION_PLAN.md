@@ -34,10 +34,12 @@ Artifacts:
 
 ### Phase A: Real Data Ingestion
 
-- Add NJ ACS pull scripts for block-group demographics.
-- Add EPA/SDWIS ingestion for lead and copper violations/samples.
-- Add NJ DEP/NJGIN ingestion hooks for service-area and infrastructure geometry.
-- Add cached ingestion artifacts and schema checks.
+- Completed:
+  - NJ ACS pull script for block-group demographics (`scripts/fetch_real_data.py`)
+  - EPA/SDWIS ingestion for LCR samples and lead violations (`leadsense_nj.ingestion`)
+  - Cached ingestion artifacts + schema checks in `data/cache`
+- Remaining:
+  - NJ DEP/NJGIN service-area/infrastructure geometry ingestion hooks
 
 ### Phase B: Full Modalities
 

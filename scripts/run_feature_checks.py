@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -11,6 +13,7 @@ from leadsense_nj.config import DataConfig
 from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.demo import build_demo_snapshot
 from leadsense_nj.explainability import top_feature_drivers
+from leadsense_nj.ingestion import ensure_real_data_cache, validate_acs_block_group_frame, validate_epa_pws_lead_signal_frame
 from leadsense_nj.optimization import optimize_replacement_plan, optimize_replacement_plan_ilp
 from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
@@ -223,6 +226,28 @@ def run_feature_09_checks() -> None:
     )
 
 
+def run_feature_10_checks() -> None:
+    artifacts = ensure_real_data_cache(
+        cache_dir=PROJECT_ROOT / "data" / "cache",
+        acs_year=2022,
+        refresh=False,
+        max_violation_rows=10000,
+        timeout_seconds=60,
+    )
+
+    acs_df = pd.read_csv(artifacts.acs_path, dtype={"geoid": str})
+    validate_acs_block_group_frame(acs_df)
+
+    pws_df = pd.read_csv(artifacts.epa_pws_summary_path)
+    validate_epa_pws_lead_signal_frame(pws_df)
+    if len(pws_df) < 100:
+        raise RuntimeError("F10 failed: EPA PWS summary is unexpectedly small.")
+
+    print("F10 checks passed.")
+    print(f"ACS rows: {len(acs_df)}")
+    print(f"EPA PWS rows: {len(pws_df)}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
@@ -233,3 +258,4 @@ if __name__ == "__main__":
     run_feature_07_checks()
     run_feature_08_checks()
     run_feature_09_checks()
+    run_feature_10_checks()

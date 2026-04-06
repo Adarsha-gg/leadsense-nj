@@ -145,3 +145,24 @@
   - `python -m pytest -q` -> `36 passed`
   - `python scripts/run_feature_checks.py` -> `F09 checks passed`
   - `python scripts/run_research_benchmark.py` -> wrote benchmark artifacts
+
+## F10 - Real Data Ingestion Cache
+
+- Status: `completed`
+- Scope:
+  - Census ACS block-group ingestion (NJ, 2022 ACS5) with derived demographic/housing rates
+  - EPA SDWIS efservice ingestion for `LCR_SAMPLE`, `LCR_SAMPLE_RESULT`, and lead-only `VIOLATION`
+  - PWS-level lead signal aggregation:
+    - `pws_action_level_exceedance_5y`
+    - `pws_any_sample_gt15_3y`
+    - `pws_lead_90p_latest_ppb`
+  - Cached CSV + metadata artifacts in `data/cache`
+  - Feature-check integration for cache/schema validation
+- Exit criteria:
+  - `python -m pytest -q` passes with ingestion tests
+  - `python scripts/fetch_real_data.py` writes real-data cache files
+  - `python scripts/run_feature_checks.py` passes including F10
+- Verification:
+  - `python -m pytest -q` -> `40 passed`
+  - `python scripts/fetch_real_data.py --cache-dir data/cache --acs-year 2022 --max-violation-rows 10000` -> wrote cache artifacts
+  - `python scripts/run_feature_checks.py` -> `F10 checks passed`
