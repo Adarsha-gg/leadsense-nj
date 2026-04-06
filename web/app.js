@@ -153,7 +153,11 @@ function renderFairness() {
     Math.abs(Number(withFair.total_risk_reduced) - Number(noFair.total_risk_reduced)) < 1e-6 &&
     Math.abs(Number(withFair.achieved_minority_share) - Number(noFair.achieved_minority_share)) < 1e-6;
   const noteEl = document.getElementById("fairness-note");
-  if (samePlan) {
+  const mode = fair.fairness_mode || "requested_tolerance";
+  if (mode === "stress_override") {
+    noteEl.textContent =
+      `Requested fairness setting was non-binding, so dashboard switched to a stricter fairness stress target (${Number(fair.stress_target || 0).toFixed(2)}) to show tradeoffs.`;
+  } else if (samePlan) {
     noteEl.textContent =
       "Fairness constraint is currently non-binding at these settings (with/without fairness pick the same plan). Try lower fairness tolerance or different budget to stress-test tradeoffs.";
   } else {

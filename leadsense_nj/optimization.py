@@ -33,6 +33,7 @@ def optimize_replacement_plan(
     budget: float,
     *,
     fairness_tolerance: float = 0.05,
+    fairness_target_override: float | None = None,
     min_county_coverage: int = 0,
     risk_col: str = "risk_score",
     cost_col: str = "replacement_cost",
@@ -48,6 +49,8 @@ def optimize_replacement_plan(
         raise ValueError("Budget must be > 0")
     if min_county_coverage < 0:
         raise ValueError("min_county_coverage must be >= 0")
+    if fairness_target_override is not None and not (0.0 <= fairness_target_override <= 1.0):
+        raise ValueError("fairness_target_override must be between 0 and 1.")
 
     work = df.copy()
     work[risk_col] = pd.to_numeric(work[risk_col], errors="raise")
@@ -76,7 +79,11 @@ def optimize_replacement_plan(
     work = work.sort_values("risk_per_dollar", ascending=False).reset_index(drop=True)
 
     global_minority_share = float(work[minority_col].mean())
-    fairness_target = max(0.0, global_minority_share - fairness_tolerance)
+    fairness_target = (
+        float(fairness_target_override)
+        if fairness_target_override is not None
+        else max(0.0, global_minority_share - fairness_tolerance)
+    )
 
     selected_rows: list[pd.Series] = []
     selected_geoids: set[str] = set()
@@ -147,6 +154,7 @@ def optimize_replacement_plan_ilp(
     budget: float,
     *,
     fairness_tolerance: float = 0.05,
+    fairness_target_override: float | None = None,
     min_county_coverage: int = 0,
     risk_col: str = "risk_score",
     cost_col: str = "replacement_cost",
@@ -160,6 +168,8 @@ def optimize_replacement_plan_ilp(
         raise ValueError(f"Missing required optimization columns: {missing}")
     if budget <= 0:
         raise ValueError("Budget must be > 0")
+    if fairness_target_override is not None and not (0.0 <= fairness_target_override <= 1.0):
+        raise ValueError("fairness_target_override must be between 0 and 1.")
 
     work = df.copy()
     work[risk_col] = pd.to_numeric(work[risk_col], errors="raise")
@@ -183,7 +193,11 @@ def optimize_replacement_plan_ilp(
         raise ValueError("All replacement costs must be > 0.")
 
     global_minority_share = float(work[minority_col].mean())
-    fairness_target = max(0.0, global_minority_share - fairness_tolerance)
+    fairness_target = (
+        float(fairness_target_override)
+        if fairness_target_override is not None
+        else max(0.0, global_minority_share - fairness_tolerance)
+    )
 
     model = pulp.LpProblem("LeadSenseReplacementPlan", pulp.LpMaximize)
     decision: dict[int, pulp.LpVariable] = {
@@ -214,6 +228,7 @@ def optimize_replacement_plan_ilp(
             work,
             budget=budget,
             fairness_tolerance=fairness_tolerance,
+            fairness_target_override=fairness_target_override,
             min_county_coverage=0,
             risk_col=risk_col,
             cost_col=cost_col,

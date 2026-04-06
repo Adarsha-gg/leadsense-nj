@@ -97,6 +97,40 @@ def _compute_fairness_comparison(
         min_county_coverage=min_county_coverage,
     )
 
+    same_plan = (
+        len(selected_fair) == len(selected_no_fair)
+        and len(
+            set(selected_fair.get("geoid", pd.Series(dtype=str)).astype(str).tolist())
+            .symmetric_difference(set(selected_no_fair.get("geoid", pd.Series(dtype=str)).astype(str).tolist()))
+        )
+        == 0
+    )
+    fairness_mode = "requested_tolerance"
+    stress_target = None
+    if same_plan and not scored_df.empty:
+        global_share = float(pd.to_numeric(scored_df["minority_share"], errors="coerce").fillna(0.0).mean())
+        baseline_share = float(summary_no_fair.achieved_minority_share)
+        stress_target = float(
+            min(
+                0.95,
+                max(
+                    global_share + 0.20,
+                    baseline_share + 0.05,
+                    0.60,
+                ),
+            )
+        )
+        selected_stress, summary_stress = optimizer(
+            scored_df,
+            budget=budget,
+            fairness_tolerance=fairness_tolerance,
+            fairness_target_override=stress_target,
+            min_county_coverage=min_county_coverage,
+        )
+        if not selected_stress.empty:
+            selected_fair, summary_fair = selected_stress, summary_stress
+            fairness_mode = "stress_override"
+
     fair_spend = (
         selected_fair.groupby("county", dropna=False)["replacement_cost"].sum().rename("with_fairness_spend")
         if not selected_fair.empty
@@ -120,6 +154,8 @@ def _compute_fairness_comparison(
 
     return {
         "effective_optimizer": effective_optimizer,
+        "fairness_mode": fairness_mode,
+        "stress_target": stress_target,
         "with_fairness": {
             "summary": _normalize_value(summary_fair),
             "selected_rows": _serialize_df(selected_fair),
