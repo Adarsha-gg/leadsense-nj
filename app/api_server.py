@@ -19,6 +19,7 @@ from pydantic import Field
 
 from leadsense_nj.ai_assistant import configured_model
 from leadsense_nj.ai_assistant import generate_block_answer
+from leadsense_nj.ai_assistant import generate_portfolio_objective
 from leadsense_nj.ai_assistant import is_ai_enabled
 from leadsense_nj.demo import build_demo_snapshot
 from leadsense_nj.metrics import compute_model_vs_historical_metrics
@@ -40,6 +41,15 @@ class AICopilotRequest(BaseModel):
     fairness_tolerance: float = Field(default=0.05, ge=0.0, le=1.0)
     min_county_coverage: int = Field(default=0, ge=0, le=10)
     optimizer_method: str = Field(default="greedy", pattern="^(ilp|greedy)$")
+
+
+class AIPortfolioRequest(BaseModel):
+    goal: str = Field(min_length=1, max_length=5000)
+    budget: float = Field(default=2000000.0, ge=10000.0, le=100000000.0)
+    fairness_tolerance: float = Field(default=0.05, ge=0.0, le=1.0)
+    min_county_coverage: int = Field(default=0, ge=0, le=10)
+    optimizer_method: str = Field(default="greedy", pattern="^(ilp|greedy)$")
+    county: str = Field(default="all", max_length=100)
 
 
 def _risk_band(score: float) -> str:
@@ -197,6 +207,7 @@ def _selected_with_summary(
     fairness_tolerance: float,
     min_county_coverage: int,
     optimizer_method: str,
+    risk_col: str = "risk_score",
 ) -> tuple[pd.DataFrame, Any]:
     effective_optimizer = optimizer_method
     if len(scored_df) > 1000 and optimizer_method == "ilp":
@@ -207,6 +218,7 @@ def _selected_with_summary(
         budget=budget,
         fairness_tolerance=fairness_tolerance,
         min_county_coverage=min_county_coverage,
+        risk_col=risk_col,
     )
 
 
@@ -415,6 +427,58 @@ def _apply_row_scope(
     return scoped
 
 
+def _minmax(series: pd.Series) -> pd.Series:
+    values = pd.to_numeric(series, errors="coerce").astype(float)
+    lo = float(values.min())
+    hi = float(values.max())
+    if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+        return pd.Series(np.zeros(len(values), dtype=float), index=values.index)
+    return ((values - lo) / (hi - lo)).fillna(0.0).clip(0.0, 1.0)
+
+
+def _build_ai_priority_frame(scored_df: pd.DataFrame, objective: dict[str, Any]) -> pd.DataFrame:
+    work = scored_df.copy()
+    weights = objective.get("weights", {}) if isinstance(objective, dict) else {}
+    w_risk = float(pd.to_numeric(weights.get("risk_reduction", 0.55), errors="coerce"))
+    w_equity = float(pd.to_numeric(weights.get("equity", 0.2), errors="coerce"))
+    w_cost = float(pd.to_numeric(weights.get("cost_efficiency", 0.15), errors="coerce"))
+    w_cert = float(pd.to_numeric(weights.get("certainty", 0.1), errors="coerce"))
+    total = max(w_risk + w_equity + w_cost + w_cert, 1e-9)
+    w_risk, w_equity, w_cost, w_cert = (w_risk / total, w_equity / total, w_cost / total, w_cert / total)
+
+    risk_n = _minmax(work["risk_score"])
+    equity_n = _minmax(work["minority_share"])
+    uncertainty_n = _minmax(work["risk_uncertainty"])
+    certainty_n = 1.0 - uncertainty_n
+    risk_per_cost = pd.to_numeric(work["risk_score"], errors="coerce") / (
+        pd.to_numeric(work["replacement_cost"], errors="coerce").replace(0, np.nan)
+    )
+    cost_eff_n = _minmax(risk_per_cost.fillna(0.0))
+
+    score = (
+        (w_risk * risk_n)
+        + (w_equity * equity_n)
+        + (w_cost * cost_eff_n)
+        + (w_cert * certainty_n)
+    )
+    work["ai_priority_score"] = pd.to_numeric(score, errors="coerce").fillna(0.0) + 1e-9
+    return work.sort_values("ai_priority_score", ascending=False).reset_index(drop=True)
+
+
+def _county_spend_table(selected_df: pd.DataFrame) -> list[dict[str, Any]]:
+    if selected_df.empty:
+        return []
+    table = (
+        selected_df.groupby("county", dropna=False)["replacement_cost"]
+        .sum()
+        .reset_index()
+        .rename(columns={"replacement_cost": "selected_spend"})
+        .sort_values("selected_spend", ascending=False)
+        .reset_index(drop=True)
+    )
+    return _serialize_df(table)
+
+
 @app.get("/api/health")
 def api_health() -> dict[str, str]:
     return {"status": "ok"}
@@ -463,6 +527,97 @@ def api_ai_copilot(request: AICopilotRequest) -> dict[str, Any]:
     return {
         "geoid": geoid,
         **result,
+    }
+
+
+@app.post("/api/ai/portfolio")
+def api_ai_portfolio(request: AIPortfolioRequest) -> dict[str, Any]:
+    payload = _cached_dashboard_payload(
+        budget=float(round(request.budget, 4)),
+        fairness_tolerance=float(round(request.fairness_tolerance, 4)),
+        min_county_coverage=int(request.min_county_coverage),
+        optimizer_method=str(request.optimizer_method),
+    )
+    scored_df = pd.DataFrame(payload.get("rows", []))
+    if scored_df.empty:
+        raise HTTPException(status_code=500, detail="No scored rows available for portfolio design.")
+
+    available_counties = [str(c) for c in payload.get("available_counties", [])]
+    objective_result = generate_portfolio_objective(
+        prompt=request.goal,
+        available_counties=available_counties,
+        default_fairness_tolerance=float(request.fairness_tolerance),
+    )
+    objective = objective_result["objective"]
+    work = scored_df.copy()
+
+    county_scope = str(request.county or "all").strip()
+    if county_scope and county_scope.lower() != "all":
+        work = work[work["county"].astype(str).str.lower() == county_scope.lower()].reset_index(drop=True)
+
+    focus_counties = objective.get("focus_counties", [])
+    if focus_counties:
+        focus_set = {str(c).lower() for c in focus_counties}
+        focused = work[work["county"].astype(str).str.lower().isin(focus_set)].reset_index(drop=True)
+        if not focused.empty:
+            work = focused
+
+    if work.empty:
+        raise HTTPException(status_code=400, detail="No candidate rows after county filtering.")
+
+    ai_df = _build_ai_priority_frame(work, objective)
+    fairness_tolerance_used = float(
+        pd.to_numeric(objective.get("fairness_tolerance", request.fairness_tolerance), errors="coerce")
+    )
+    fairness_tolerance_used = max(0.0, min(1.0, fairness_tolerance_used))
+    min_county_coverage_used = max(
+        int(request.min_county_coverage),
+        int(pd.to_numeric(objective.get("min_county_coverage", 0), errors="coerce")),
+    )
+
+    selected_ai, summary_ai = _selected_with_summary(
+        ai_df,
+        budget=float(request.budget),
+        fairness_tolerance=fairness_tolerance_used,
+        min_county_coverage=min_county_coverage_used,
+        optimizer_method=str(request.optimizer_method),
+        risk_col="ai_priority_score",
+    )
+    selected_baseline, summary_baseline = _selected_with_summary(
+        ai_df,
+        budget=float(request.budget),
+        fairness_tolerance=fairness_tolerance_used,
+        min_county_coverage=min_county_coverage_used,
+        optimizer_method=str(request.optimizer_method),
+        risk_col="risk_score",
+    )
+
+    ai_geoids = {str(g) for g in selected_ai.get("geoid", pd.Series(dtype=str)).astype(str).tolist()}
+    baseline_geoids = {str(g) for g in selected_baseline.get("geoid", pd.Series(dtype=str)).astype(str).tolist()}
+    overlap = len(ai_geoids.intersection(baseline_geoids))
+    overlap_rate = float(overlap / max(len(ai_geoids), 1))
+
+    return {
+        "goal": str(request.goal),
+        "ai_enabled": bool(objective_result.get("ai_enabled", False)),
+        "ai_used": bool(objective_result.get("ai_used", False)),
+        "model": objective_result.get("model"),
+        "fallback_reason": objective_result.get("fallback_reason"),
+        "objective_profile": objective,
+        "candidate_count": int(len(ai_df)),
+        "county_scope": county_scope,
+        "selected_rows": _serialize_df(selected_ai),
+        "selected_county_spend": _county_spend_table(selected_ai),
+        "summary": _normalize_value(summary_ai),
+        "baseline_summary": _normalize_value(summary_baseline),
+        "portfolio_delta": {
+            "selected_count_delta_vs_baseline": int(summary_ai.selected_count - summary_baseline.selected_count),
+            "risk_objective_delta_vs_baseline": float(summary_ai.total_risk_reduced - summary_baseline.total_risk_reduced),
+            "minority_share_delta_vs_baseline": float(
+                summary_ai.achieved_minority_share - summary_baseline.achieved_minority_share
+            ),
+            "overlap_rate_with_baseline": overlap_rate,
+        },
     }
 
 

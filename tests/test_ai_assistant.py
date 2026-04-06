@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from leadsense_nj.ai_assistant import generate_block_answer
+from leadsense_nj.ai_assistant import generate_portfolio_objective
 
 
 def test_generate_block_answer_fallback_without_key(monkeypatch) -> None:
@@ -30,3 +31,18 @@ def test_generate_block_answer_fallback_without_key(monkeypatch) -> None:
     assert result["ai_used"] is False
     assert "fallback" in result["answer"].lower()
     assert "Test Township" in result["answer"]
+
+
+def test_generate_portfolio_objective_fallback_without_key(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    result = generate_portfolio_objective(
+        prompt="Prioritize fairness and make it statewide across all counties",
+        available_counties=["Atlantic", "Essex", "Mercer"],
+        default_fairness_tolerance=0.05,
+    )
+    assert result["ai_enabled"] is False
+    assert result["ai_used"] is False
+    objective = result["objective"]
+    assert isinstance(objective["weights"], dict)
+    assert objective["weights"]["equity"] > 0
+    assert objective["min_county_coverage"] >= 1

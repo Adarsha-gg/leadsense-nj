@@ -105,7 +105,10 @@ Then open: `http://127.0.0.1:8000`
 Notes:
 - Dashboard now uses expanded NJ research dataset when available (`data/processed/nj_research_features.csv`).
 - Performance cards show cross-validated metrics from benchmark artifacts.
-- AI Copilot tab supports LLM answers when `OPENAI_API_KEY` is set; otherwise deterministic fallback is used.
+- AI Copilot tab supports:
+  - area-level Q&A and policy brief generation
+  - AI Portfolio Designer: converts a natural-language policy goal into objective weights/constraints and generates a replacement portfolio with baseline deltas
+  Both use LLM responses when `OPENAI_API_KEY` is set; otherwise deterministic fallback is used.
 
 Enable AI Copilot:
 

@@ -79,3 +79,25 @@ def test_api_ai_status_and_copilot_fallback(monkeypatch) -> None:
     assert body["ai_used"] is False
     assert isinstance(body["answer"], str)
     assert len(body["answer"]) > 50
+
+
+def test_api_ai_portfolio_fallback(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    client = TestClient(app)
+    portfolio = client.post(
+        "/api/ai/portfolio",
+        json={
+            "goal": "Maximize risk reduction but keep fairness strong and ensure at least one block per county.",
+            "budget": 2000000.0,
+            "fairness_tolerance": 0.05,
+            "optimizer_method": "greedy",
+            "county": "all",
+        },
+    )
+    assert portfolio.status_code == 200
+    body = portfolio.json()
+    assert body["ai_used"] is False
+    assert body["candidate_count"] > 0
+    assert len(body["selected_rows"]) > 0
+    assert "objective_profile" in body
+    assert "portfolio_delta" in body

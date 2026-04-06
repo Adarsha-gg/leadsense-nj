@@ -241,6 +241,16 @@ main {
   min-height: 120px;
 }
 
+#ai-portfolio-output {
+  margin-top: 0.8rem;
+  background: #f8fbff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem;
+  white-space: pre-wrap;
+  min-height: 140px;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

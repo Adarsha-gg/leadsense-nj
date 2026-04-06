@@ -427,6 +427,71 @@ async function askAICopilot(question) {
   answerEl.textContent = `[${mode}${model}]\n\n${body.answer}${reason}`;
 }
 
+function formatPct(value) {
+  return `${(Number(value || 0) * 100).toFixed(1)}%`;
+}
+
+async function designAIPortfolio(goal) {
+  const outEl = document.getElementById("ai-portfolio-output");
+  const goalText = String(goal || "").trim();
+  if (!goalText) {
+    outEl.textContent = "Enter a policy goal first.";
+    return;
+  }
+  outEl.textContent = "Designing AI portfolio...";
+  const county = document.getElementById("county-filter")?.value || "all";
+  const payload = {
+    goal: goalText,
+    budget: Number(document.getElementById("budget").value),
+    fairness_tolerance: Number(document.getElementById("fairness").value),
+    min_county_coverage: 0,
+    optimizer_method: String(document.getElementById("optimizer").value),
+    county,
+  };
+  const res = await fetch("/api/ai/portfolio", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`ai portfolio failed: ${res.status} ${errText}`);
+  }
+  const body = await res.json();
+  const mode = body.ai_used ? "LLM profile" : "Heuristic profile";
+  const model = body.model ? ` (${body.model})` : "";
+  const objective = body.objective_profile || {};
+  const weights = objective.weights || {};
+  const summary = body.summary || {};
+  const baseline = body.baseline_summary || {};
+  const delta = body.portfolio_delta || {};
+  const topRows = (body.selected_rows || []).slice(0, 7);
+  const topRowsText = topRows
+    .map(
+      (row, idx) =>
+        `${idx + 1}. ${row.county || "Unknown"} | ${row.municipality || row.geoid} | AI score ${Number(row.ai_priority_score || 0).toFixed(4)} | risk ${formatPct(row.risk_score)} | cost ${fmtMoney(row.replacement_cost)}`,
+    )
+    .join("\n");
+  const reason = body.fallback_reason ? `\nFallback reason: ${body.fallback_reason}` : "";
+  outEl.textContent = `[${mode}${model}]
+Goal label: ${objective.goal_label || "AI objective"}
+Rationale: ${objective.rationale || "N/A"}
+Weights -> risk ${Number(weights.risk_reduction || 0).toFixed(2)}, equity ${Number(weights.equity || 0).toFixed(2)}, cost_eff ${Number(weights.cost_efficiency || 0).toFixed(2)}, certainty ${Number(weights.certainty || 0).toFixed(2)}
+Fairness tolerance used: ${Number(objective.fairness_tolerance || payload.fairness_tolerance).toFixed(2)}
+Min county coverage used: ${Number(objective.min_county_coverage || 0)}
+Focus counties: ${(objective.focus_counties || []).join(", ") || "none"}
+Candidate rows: ${body.candidate_count}
+
+Selected count: ${summary.selected_count || 0} (baseline ${baseline.selected_count || 0})
+Selected cost: ${fmtMoney(summary.total_cost)} / ${fmtMoney(summary.budget)}
+Achieved minority share: ${formatPct(summary.achieved_minority_share)} (baseline ${formatPct(baseline.achieved_minority_share)})
+Risk objective delta vs baseline: ${Number(delta.risk_objective_delta_vs_baseline || 0).toFixed(4)}
+Overlap with baseline portfolio: ${(Number(delta.overlap_rate_with_baseline || 0) * 100).toFixed(1)}%
+
+Top selected areas:
+${topRowsText || "No rows selected."}${reason}`;
+}
+
 function renderFairness() {
   const fair = state.dashboard?.fairness_comparison;
   if (!fair) return;
@@ -604,6 +669,13 @@ function wireEvents() {
     askAICopilot(question).catch((err) => {
       console.error(err);
       document.getElementById("ai-answer").textContent = `Failed to get AI response: ${err.message}`;
+    });
+  });
+  document.getElementById("ai-portfolio-btn").addEventListener("click", () => {
+    const goal = document.getElementById("ai-portfolio-goal").value;
+    designAIPortfolio(goal).catch((err) => {
+      console.error(err);
+      document.getElementById("ai-portfolio-output").textContent = `Failed to design AI portfolio: ${err.message}`;
     });
   });
 }
