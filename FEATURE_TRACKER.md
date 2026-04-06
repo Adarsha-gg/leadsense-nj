@@ -1,47 +1,52 @@
 # Feature Tracker
 
-- [x] F01 Upload road video for analysis
-- [x] F02 Analyze camera snapshot frame
-- [x] F03 Optional GPS CSV geotagging
-- [x] F04 Detector backend switch (Mock / YOLO)
-- [x] F05 Confidence threshold control
-- [x] F06 Frame sampling control
-- [x] F07 Duplicate detection suppression
-- [x] F08 Max-frame processing budget
-- [x] F09 Bounding-box hazard overlays
-- [x] F10 Hazard-class taxonomy
-- [x] F11 Severity scoring
-- [x] F12 Composite risk scoring
-- [x] F13 Traffic context weighting
-- [x] F14 Weather context weighting
-- [x] F15 School-zone context weighting
-- [x] F16 Equity context weighting
-- [x] F17 Priority queue generation
-- [x] F18 Budget-constrained prioritization
-- [x] F19 Top-K segment selection
-- [x] F20 What-if repair simulation
-- [x] F21 Detection summary metrics
-- [x] F22 Hazard distribution chart
-- [x] F23 Risk timeline chart
-- [x] F24 Interactive map view
-- [x] F25 Class filter
-- [x] F26 Minimum risk filter
-- [x] F27 CSV export (detections)
-- [x] F28 CSV export (priority queue)
-- [x] F29 Markdown report export
-- [x] F30 Session run history
-- [x] F31 NJ scenario presets
-- [x] F32 County risk adjustment
-- [x] F33 Synthetic demo video generation
-- [x] F34 Synthetic GPS generation
-- [x] F35 Scenario notes display
-- [x] F36 Risk band breakdown chart
-- [x] F37 Confidence diagnostics chart
-- [x] F38 Segment leaderboard table
-- [x] F39 Class-by-risk heatmap
-- [x] F40 Operational KPI estimator
-- [x] F41 CO2 reduction proxy
-- [x] F42 Intervention recommendation cards
-- [x] F43 NJBDA talking points panel
-- [x] F44 Assumptions/model transparency panel
-- [x] F45 Template data quick reference
+## F01 - Data Foundation
+
+- Status: `completed`
+- Scope:
+  - Project scaffold for `leadsense_nj`
+  - Feature table loader
+  - Required-column and GEOID validation
+  - Numeric range validation
+  - Missing-value imputation
+  - Automated feature check script
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes
+- Verification:
+  - `python -m pytest -q` -> `4 passed`
+  - `python scripts/run_feature_checks.py` -> `F01 checks passed`
+
+## F02 - Target Construction
+
+- Status: `completed`
+- Scope:
+  - Deterministic label logic from Spec Section 5.4
+  - Branch coverage tests for all positive paths and negative control
+  - Integrated `risk_label` feature check in script
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes
+- Verification:
+  - `python -m pytest -q` -> `8 passed`
+  - `python scripts/run_feature_checks.py` -> `F02 checks passed`
+
+## F03 - Baseline Predictor
+
+- Status: `pending`
+
+## F04 - Uncertainty Layer
+
+- Status: `pending`
+
+## F05 - Fairness Optimizer
+
+- Status: `pending`
+
+## F06 - Explainability + Policy Brief
+
+- Status: `pending`
+
+## F07 - Demo App
+
+- Status: `pending`
