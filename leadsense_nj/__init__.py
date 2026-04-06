@@ -1,6 +1,7 @@
 """LeadSense NJ package."""
 
 from leadsense_nj.baseline import TabularBaselineModel, fit_tabular_logistic
+from leadsense_nj.demo import DemoSnapshot, build_demo_snapshot
 from leadsense_nj.explainability import compute_linear_contributions, format_driver_lines, top_feature_drivers
 from leadsense_nj.optimization import OptimizationSummary, optimize_replacement_plan
 from leadsense_nj.policy_brief import generate_policy_brief
@@ -16,6 +17,7 @@ __all__ = [
     "BootstrappedRiskEnsemble",
     "TabularBaselineModel",
     "build_feature_table",
+    "build_demo_snapshot",
     "compute_linear_contributions",
     "construct_elevated_risk_label",
     "expected_calibration_error",
@@ -24,6 +26,7 @@ __all__ = [
     "generate_policy_brief",
     "OptimizationSummary",
     "optimize_replacement_plan",
+    "DemoSnapshot",
     "top_feature_drivers",
     "train_bootstrap_ensemble",
     "with_elevated_risk_label",

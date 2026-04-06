@@ -26,3 +26,9 @@ python -m pytest -q
 ```bash
 python scripts/run_feature_checks.py
 ```
+
+## Demo App
+
+```bash
+streamlit run app/streamlit_app.py
+```

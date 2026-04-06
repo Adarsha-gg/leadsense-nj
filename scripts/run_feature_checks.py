@@ -9,6 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from leadsense_nj.config import DataConfig
 from leadsense_nj.baseline import fit_tabular_logistic
+from leadsense_nj.demo import build_demo_snapshot
 from leadsense_nj.explainability import top_feature_drivers
 from leadsense_nj.optimization import optimize_replacement_plan
 from leadsense_nj.policy_brief import generate_policy_brief
@@ -138,6 +139,21 @@ def run_feature_06_checks() -> None:
     print(f"Policy brief length: {len(brief)} characters")
 
 
+def run_feature_07_checks() -> None:
+    df = build_feature_table()
+    snapshot = build_demo_snapshot(df, budget=35000, fairness_tolerance=0.05, min_county_coverage=0)
+    if snapshot.scored_df.empty:
+        raise RuntimeError("F07 failed: demo snapshot has empty scored table.")
+    if "risk_score" not in snapshot.scored_df.columns:
+        raise RuntimeError("F07 failed: risk_score missing in demo snapshot.")
+    if snapshot.optimization_summary.total_cost > snapshot.optimization_summary.budget + 1e-6:
+        raise RuntimeError("F07 failed: demo snapshot optimization exceeds budget.")
+
+    print("F07 checks passed.")
+    print(f"Snapshot rows: {len(snapshot.scored_df)}")
+    print(f"Policy briefs: {len(snapshot.policy_briefs)}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
@@ -145,3 +161,4 @@ if __name__ == "__main__":
     run_feature_04_checks()
     run_feature_05_checks()
     run_feature_06_checks()
+    run_feature_07_checks()

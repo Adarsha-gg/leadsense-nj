@@ -93,4 +93,14 @@
 
 ## F07 - Demo App
 
-- Status: `pending`
+- Status: `completed`
+- Scope:
+  - Demo snapshot builder for risk scoring, uncertainty, optimization, and briefs
+  - Streamlit demo app with overview, optimizer, and policy brief tabs
+  - Feature-check integration for demo snapshot integrity
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes
+- Verification:
+  - `python -m pytest -q` -> `21 passed`
+  - `python scripts/run_feature_checks.py` -> `F07 checks passed`
