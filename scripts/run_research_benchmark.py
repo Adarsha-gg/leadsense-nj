@@ -17,6 +17,21 @@ def _to_markdown(report: dict) -> str:
     h = report["historical"]["accuracy"]["mean"]
     f = report["fusion"]["accuracy"]["mean"]
     g = report["graph"]["accuracy"]["mean"]
+    ablation_rows = [
+        "| Model | Accuracy (mean +/- std) | AUROC | AUPRC |",
+        "|---|---:|---:|---:|",
+    ]
+    for row in report.get("ablation_accuracy_table", []):
+        ablation_rows.append(
+            "| {model} | {acc_mean:.3f} +/- {acc_std:.3f} | {auroc:.3f} | {auprc:.3f} |".format(
+                model=row["model"],
+                acc_mean=row["accuracy_mean"],
+                acc_std=row["accuracy_std"],
+                auroc=row["auroc_mean"],
+                auprc=row["auprc_mean"],
+            )
+        )
+
     lines = [
         "# LeadSense Research Benchmark",
         "",
@@ -29,10 +44,19 @@ def _to_markdown(report: dict) -> str:
         f"- Fusion: `{f:.3f} +/- {report['fusion']['accuracy']['std']:.3f}`",
         f"- Graph: `{g:.3f} +/- {report['graph']['accuracy']['std']:.3f}`",
         "",
+        "## Graph Model Ranking Metrics",
+        "",
+        f"- Graph AUROC: `{report['graph']['auroc']['mean']:.3f} +/- {report['graph']['auroc']['std']:.3f}`",
+        f"- Graph AUPRC: `{report['graph']['auprc']['mean']:.3f} +/- {report['graph']['auprc']['std']:.3f}`",
+        "",
         "## Improvement",
         "",
         f"- Graph - Historical accuracy: `{report['improvement_graph_over_historical_accuracy']:.3f}`",
         f"- Graph - Fusion accuracy: `{report['improvement_graph_over_fusion_accuracy']:.3f}`",
+        "",
+        "## Ablation Table",
+        "",
+        *ablation_rows,
     ]
     return "\n".join(lines) + "\n"
 

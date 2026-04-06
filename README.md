@@ -32,6 +32,9 @@ python scripts/run_feature_checks.py
 
 Runs spatial cross-validation comparing:
 - Historical signal baseline
+- Logistic tabular baseline
+- Fusion tabular-only
+- Fusion tabular+temporal
 - Multimodal fusion model
 - Graph-enhanced model
 

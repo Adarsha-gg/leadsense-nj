@@ -122,3 +122,26 @@
   - `python -m pytest -q` -> `34 passed`
   - `python scripts/run_feature_checks.py` -> `F08 checks passed`
   - `python scripts/run_research_benchmark.py` -> wrote benchmark artifacts
+
+## F09 - Publication Metrics + Ablation
+
+- Status: `completed`
+- Scope:
+  - Probabilistic evaluation metrics (AUROC, AUPRC, specificity, Brier, ECE)
+  - Expanded ablation benchmark:
+    - Historical baseline
+    - Logistic tabular baseline
+    - Fusion tabular-only
+    - Fusion tabular+temporal
+    - Full fusion (tabular+temporal+vision proxy)
+    - Graph-enhanced model
+  - Streamlit metrics tab updates with AUROC/AUPRC and ablation table
+  - Feature-check integration for ablation completeness and ranking metrics
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes including F09
+  - `python scripts/run_research_benchmark.py` writes ablation-rich artifacts
+- Verification:
+  - `python -m pytest -q` -> `36 passed`
+  - `python scripts/run_feature_checks.py` -> `F09 checks passed`
+  - `python scripts/run_research_benchmark.py` -> wrote benchmark artifacts

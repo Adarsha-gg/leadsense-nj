@@ -14,6 +14,7 @@ from leadsense_nj.metrics import (
     ModelVsHistoricalMetrics,
     compute_binary_metrics,
     compute_model_vs_historical_metrics,
+    compute_probabilistic_metrics,
     historical_signal_prediction,
 )
 from leadsense_nj.multimodal import FusionRiskModel, build_fusion_feature_table, build_temporal_features, train_fusion_model
@@ -41,6 +42,7 @@ __all__ = [
     "compute_binary_metrics",
     "compute_linear_contributions",
     "compute_model_vs_historical_metrics",
+    "compute_probabilistic_metrics",
     "construct_elevated_risk_label",
     "BinaryClassificationMetrics",
     "expected_calibration_error",

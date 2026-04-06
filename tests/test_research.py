@@ -21,6 +21,10 @@ def test_run_model_research_benchmark_has_expected_keys() -> None:
     report = run_model_research_benchmark(df, n_splits=3, threshold=0.5, random_state=42)
     assert report["n_folds"] >= 2
     assert "historical" in report
+    assert "baseline_tabular" in report
+    assert "tabular" in report
+    assert "tabular_temporal" in report
     assert "fusion" in report
     assert "graph" in report
+    assert "ablation_accuracy_table" in report
     assert "fold_results" in report

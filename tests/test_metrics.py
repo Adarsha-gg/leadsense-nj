@@ -3,7 +3,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from leadsense_nj.metrics import compute_binary_metrics, compute_model_vs_historical_metrics
+from leadsense_nj.metrics import (
+    compute_binary_metrics,
+    compute_model_vs_historical_metrics,
+    compute_probabilistic_metrics,
+)
 
 
 def test_compute_binary_metrics_ranges() -> None:
@@ -15,6 +19,7 @@ def test_compute_binary_metrics_ranges() -> None:
     assert 0.0 <= metrics.precision <= 1.0
     assert 0.0 <= metrics.recall <= 1.0
     assert 0.0 <= metrics.f1 <= 1.0
+    assert 0.0 <= metrics.specificity <= 1.0
     assert metrics.tp + metrics.fp + metrics.tn + metrics.fn == len(y_true)
 
 
@@ -34,3 +39,16 @@ def test_compute_model_vs_historical_metrics_outputs_comparison() -> None:
     assert 0.0 <= result.model.accuracy <= 1.0
     assert 0.0 <= result.model_ece <= 1.0
     assert 0.0 <= result.model_brier <= 1.0
+    assert 0.0 <= result.model_auroc <= 1.0
+    assert 0.0 <= result.model_auprc <= 1.0
+
+
+def test_compute_probabilistic_metrics_outputs_ranking_metrics() -> None:
+    y_true = np.array([1, 0, 1, 0, 1, 0])
+    y_prob = np.array([0.92, 0.21, 0.73, 0.44, 0.61, 0.18])
+    metrics = compute_probabilistic_metrics(y_true, y_prob, threshold=0.5, ece_bins=5)
+
+    assert 0.0 <= metrics.auroc <= 1.0
+    assert 0.0 <= metrics.auprc <= 1.0
+    assert 0.0 <= metrics.brier <= 1.0
+    assert 0.0 <= metrics.ece <= 1.0

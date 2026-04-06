@@ -48,6 +48,13 @@ def test_fusion_feature_table_not_empty() -> None:
     assert fused.shape[1] >= 12
 
 
+def test_fusion_feature_table_allows_modality_ablation() -> None:
+    df = _sample_df()
+    tabular_only = build_fusion_feature_table(df, include_temporal=False, include_vision=False)
+    tabular_temporal = build_fusion_feature_table(df, include_temporal=True, include_vision=False)
+    assert len(tabular_only.columns) < len(tabular_temporal.columns)
+
+
 def test_train_fusion_model_predicts() -> None:
     df = with_elevated_risk_label(_sample_df())
     model = train_fusion_model(df)

@@ -74,12 +74,23 @@ def build_vision_proxy_features(df: pd.DataFrame, cols: tuple[str, ...] = VISION
     return features
 
 
-def build_fusion_feature_table(df: pd.DataFrame) -> pd.DataFrame:
-    tabular = _to_numeric_frame(df, TABULAR_COLUMNS)
-    temporal = build_temporal_features(df)
-    vision = build_vision_proxy_features(df)
-    fused = pd.concat([tabular, temporal, vision], axis=1)
-    return fused
+def build_fusion_feature_table(
+    df: pd.DataFrame,
+    *,
+    include_tabular: bool = True,
+    include_temporal: bool = True,
+    include_vision: bool = True,
+) -> pd.DataFrame:
+    parts: list[pd.DataFrame] = []
+    if include_tabular:
+        parts.append(_to_numeric_frame(df, TABULAR_COLUMNS))
+    if include_temporal:
+        parts.append(build_temporal_features(df))
+    if include_vision:
+        parts.append(build_vision_proxy_features(df))
+    if not parts:
+        raise ValueError("At least one modality must be enabled for fusion features.")
+    return pd.concat(parts, axis=1)
 
 
 @dataclass(frozen=True)
@@ -95,14 +106,26 @@ class FusionRiskModel:
         return (self.predict_proba(fused_df) >= threshold).astype(int)
 
 
-def train_fusion_model(df: pd.DataFrame, label_col: str = "risk_label") -> FusionRiskModel:
+def train_fusion_model(
+    df: pd.DataFrame,
+    label_col: str = "risk_label",
+    *,
+    include_tabular: bool = True,
+    include_temporal: bool = True,
+    include_vision: bool = True,
+) -> FusionRiskModel:
     if label_col not in df.columns:
         raise ValueError(f"Missing label column: {label_col}")
     y = pd.to_numeric(df[label_col], errors="raise").astype(int).to_numpy()
     if len(np.unique(y)) < 2:
         raise ValueError("Need at least two classes to train fusion model.")
 
-    fused = build_fusion_feature_table(df)
+    fused = build_fusion_feature_table(
+        df,
+        include_tabular=include_tabular,
+        include_temporal=include_temporal,
+        include_vision=include_vision,
+    )
     feature_columns = tuple(fused.columns.tolist())
     estimator = Pipeline(
         steps=[

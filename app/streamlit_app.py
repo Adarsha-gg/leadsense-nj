@@ -7,6 +7,12 @@ import streamlit as st
 
 from leadsense_nj.demo import build_demo_snapshot
 from leadsense_nj.preprocessing import build_feature_table
+from leadsense_nj.research import run_model_research_benchmark
+
+
+@st.cache_data(show_spinner=False)
+def _cached_ablation_report(df: pd.DataFrame) -> dict:
+    return run_model_research_benchmark(df, n_splits=3, threshold=0.5, random_state=42)
 
 
 st.set_page_config(page_title="LeadSense NJ", layout="wide")
@@ -83,6 +89,7 @@ with tab3:
 with tab4:
     st.subheader("Historical vs Model Performance")
     metrics = snapshot.comparison_metrics
+    benchmark = _cached_ablation_report(df)
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Historical Accuracy", f"{metrics.historical.accuracy * 100:.1f}%")
@@ -98,6 +105,14 @@ with tab4:
     c7.metric("Historical Positive Rate", f"{metrics.historical.positive_rate * 100:.1f}%")
     c8.metric("Model Positive Rate", f"{metrics.model.positive_rate * 100:.1f}%")
     c9.metric("Model ECE", f"{metrics.model_ece:.3f}")
+
+    c10, c11 = st.columns(2)
+    c10.metric("Historical AUROC", f"{metrics.historical_auroc:.3f}")
+    c11.metric("Model AUROC", f"{metrics.model_auroc:.3f}")
+
+    c12, c13 = st.columns(2)
+    c12.metric("Historical AUPRC", f"{metrics.historical_auprc:.3f}")
+    c13.metric("Model AUPRC", f"{metrics.model_auprc:.3f}")
 
     st.caption(
         f"Model threshold: {metrics.model_threshold:.2f} | "
@@ -123,3 +138,19 @@ with tab4:
         ]
     )
     st.dataframe(matrix_df, use_container_width=True)
+
+    st.subheader("Ablation Benchmark")
+    ablation_df = pd.DataFrame(benchmark.get("ablation_accuracy_table", []))
+    if not ablation_df.empty:
+        ablation_df = ablation_df.rename(
+            columns={
+                "model": "Model",
+                "accuracy_mean": "Accuracy Mean",
+                "accuracy_std": "Accuracy Std",
+                "auroc_mean": "AUROC Mean",
+                "auprc_mean": "AUPRC Mean",
+            }
+        )
+        st.dataframe(ablation_df, use_container_width=True)
+    else:
+        st.info("No ablation rows available.")

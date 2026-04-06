@@ -14,7 +14,9 @@ This plan converts the technical spec into an evidence-first workflow where ever
 - Multimodal fusion model (tabular + temporal + vision-proxy features)
 - Graph-enhanced model (KNN topology + iterative mean message passing)
 - Uncertainty and calibration metrics (ECE, Brier)
+- Ranking metrics (AUROC, AUPRC) and specificity tracking
 - Fairness-aware optimizer (greedy + ILP)
+- Ablation benchmark table across six model variants
 - Research benchmark runner and artifact writer
 
 Run:

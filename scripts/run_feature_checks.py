@@ -198,6 +198,31 @@ def run_feature_08_checks() -> None:
     )
 
 
+def run_feature_09_checks() -> None:
+    df = build_feature_table()
+    report = run_model_research_benchmark(df, n_splits=3, threshold=0.5, random_state=42)
+
+    required_variants = ["historical", "baseline_tabular", "tabular", "tabular_temporal", "fusion", "graph"]
+    for variant in required_variants:
+        if variant not in report:
+            raise RuntimeError(f"F09 failed: missing benchmark variant '{variant}'.")
+        for metric_name in ["accuracy", "auroc", "auprc"]:
+            value = report[variant][metric_name]["mean"]
+            if not (0.0 <= value <= 1.0):
+                raise RuntimeError(f"F09 failed: {variant} {metric_name} mean out of range ({value}).")
+
+    ablation_rows = report.get("ablation_accuracy_table", [])
+    if len(ablation_rows) < 5:
+        raise RuntimeError("F09 failed: ablation accuracy table is incomplete.")
+
+    print("F09 checks passed.")
+    print(
+        f"Graph AUROC mean: {report['graph']['auroc']['mean']:.3f} | "
+        f"Graph AUPRC mean: {report['graph']['auprc']['mean']:.3f} | "
+        f"Ablation rows: {len(ablation_rows)}"
+    )
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
@@ -207,3 +232,4 @@ if __name__ == "__main__":
     run_feature_06_checks()
     run_feature_07_checks()
     run_feature_08_checks()
+    run_feature_09_checks()
