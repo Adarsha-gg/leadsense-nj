@@ -55,6 +55,19 @@ until NJ DEP/NJGIN network edges are wired in.
 python scripts/build_infrastructure_edges.py --feature-table data/processed/block_group_features_sample.csv --out data/processed/graph_edges_sample.csv
 ```
 
+## Sentinel-2 Tile Features (F12)
+
+Fetches Sentinel-2 STAC item metadata per block-group point and caches derived
+vision features for modeling.
+
+```bash
+python scripts/fetch_sentinel_features.py --feature-table data/processed/block_group_features_sample.csv --cache-dir data/cache --start-date 2024-04-01 --end-date 2024-10-31 --items-per-block 1 --max-cloud-cover 60
+```
+
+Outputs:
+- `data/cache/sentinel_features_sample.csv`
+- `data/cache/sentinel_features_metadata.json`
+
 ## Real Data Ingestion (F10)
 
 Fetches real NJ data from:

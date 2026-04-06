@@ -41,6 +41,15 @@ VISION_PROXY_COLUMNS: tuple[str, ...] = (
     "distance_to_tri_km",
 )
 
+VISION_SATELLITE_COLUMNS: tuple[str, ...] = (
+    "s2_cloud_cover_mean",
+    "s2_vegetation_pct_mean",
+    "s2_water_pct_mean",
+    "s2_nodata_pct_mean",
+    "s2_item_count",
+    "s2_days_since_latest",
+)
+
 
 def _to_numeric_frame(df: pd.DataFrame, cols: tuple[str, ...]) -> pd.DataFrame:
     out = df.loc[:, cols].copy()
@@ -66,6 +75,17 @@ def build_temporal_features(df: pd.DataFrame, temporal_cols: tuple[str, ...] = T
 
 
 def build_vision_proxy_features(df: pd.DataFrame, cols: tuple[str, ...] = VISION_PROXY_COLUMNS) -> pd.DataFrame:
+    if set(VISION_SATELLITE_COLUMNS).issubset(df.columns):
+        sat = _to_numeric_frame(df, VISION_SATELLITE_COLUMNS)
+        features = pd.DataFrame(index=df.index)
+        features["vision_sat_cloud_penalty"] = sat["s2_cloud_cover_mean"] / 100.0
+        features["vision_sat_vegetation_signal"] = sat["s2_vegetation_pct_mean"] / 100.0
+        features["vision_sat_water_signal"] = sat["s2_water_pct_mean"] / 100.0
+        features["vision_sat_nodata_penalty"] = sat["s2_nodata_pct_mean"] / 100.0
+        features["vision_sat_recentness"] = 1.0 / (1.0 + sat["s2_days_since_latest"])
+        features["vision_sat_observation_count"] = sat["s2_item_count"]
+        return features
+
     x = _to_numeric_frame(df, cols)
     features = pd.DataFrame(index=df.index)
     features["vision_old_infra_density"] = x["pct_housing_pre_1950"] * 1.5 + x["poverty_rate"]

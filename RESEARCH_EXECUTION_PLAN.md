@@ -43,9 +43,12 @@ Artifacts:
 
 ### Phase B: Full Modalities
 
-- Satellite imagery ingestion and tile-level features from Sentinel-2.
-- Replace vision-proxy features with real image encoder features.
-- Build quarterly temporal matrices from real historical records.
+- Completed:
+  - Sentinel-2 STAC ingestion and tile-level metadata feature cache (`leadsense_nj.satellite`)
+  - Vision branch now consumes cached satellite-derived features when available
+- Remaining:
+  - Replace metadata-based vision features with learned image-encoder features
+  - Build quarterly temporal tensors from real historical records
 
 ### Phase C: Advanced Graph Model
 

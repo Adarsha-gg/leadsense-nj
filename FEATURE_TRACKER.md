@@ -186,3 +186,21 @@
   - `python -m pytest -q` -> `43 passed`
   - `python scripts/run_feature_checks.py` -> `F11 checks passed`
   - `python scripts/run_research_benchmark.py` -> wrote benchmark artifacts
+
+## F12 - Sentinel-2 Ingestion + Vision Cache
+
+- Status: `completed`
+- Scope:
+  - Planetary Computer STAC search integration for `sentinel-2-l2a`
+  - Per-block Sentinel metadata feature extraction and aggregation
+  - Cached Sentinel artifact writer (`data/cache/sentinel_features_sample.csv`)
+  - Multimodal vision branch support for real satellite-derived columns
+  - Feature-check integration for Sentinel cache integrity
+- Exit criteria:
+  - `python -m pytest -q` passes with satellite tests
+  - `python scripts/fetch_sentinel_features.py` writes Sentinel cache artifacts
+  - `python scripts/run_feature_checks.py` passes including F12
+- Verification:
+  - `python -m pytest -q` -> `46 passed`
+  - `python scripts/fetch_sentinel_features.py --feature-table data/processed/block_group_features_sample.csv --cache-dir data/cache --start-date 2024-04-01 --end-date 2024-10-31 --items-per-block 1 --max-cloud-cover 60` -> wrote Sentinel cache artifacts
+  - `python scripts/run_feature_checks.py` -> `F12 checks passed`

@@ -19,6 +19,7 @@ from leadsense_nj.optimization import optimize_replacement_plan, optimize_replac
 from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.research import run_model_research_benchmark
+from leadsense_nj.satellite import ensure_sentinel_feature_cache, validate_sentinel_feature_frame
 from leadsense_nj.target import with_elevated_risk_label
 from leadsense_nj.uncertainty import expected_calibration_error, train_bootstrap_ensemble
 
@@ -276,6 +277,39 @@ def run_feature_11_checks() -> None:
     print(f"Infra - KNN acc delta: {float(delta):.3f}")
 
 
+def run_feature_12_checks() -> None:
+    df = build_feature_table()
+    artifacts = ensure_sentinel_feature_cache(
+        df,
+        cache_dir=PROJECT_ROOT / "data" / "cache",
+        features_filename="sentinel_features_sample.csv",
+        metadata_filename="sentinel_features_metadata.json",
+        refresh=False,
+        start_date="2024-04-01",
+        end_date="2024-10-31",
+        items_per_block=1,
+        max_cloud_cover=60.0,
+        bbox_half_size_deg=0.01,
+        timeout_seconds=60,
+        allow_fallback=True,
+    )
+    sat_df = pd.read_csv(artifacts.features_path, dtype={"geoid": str})
+    validate_sentinel_feature_frame(sat_df)
+
+    merged = df.merge(sat_df, on="geoid", how="left")
+    missing = merged["s2_cloud_cover_mean"].isna().sum()
+    if missing > 0:
+        raise RuntimeError(f"F12 failed: missing Sentinel features for {missing} block groups.")
+
+    live_or_fallback = set(sat_df["s2_source"].astype(str).unique().tolist())
+    if not live_or_fallback:
+        raise RuntimeError("F12 failed: Sentinel cache has no source tags.")
+
+    print("F12 checks passed.")
+    print(f"Sentinel cache rows: {len(sat_df)}")
+    print(f"Sentinel source tags: {sorted(live_or_fallback)}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
@@ -288,3 +322,4 @@ if __name__ == "__main__":
     run_feature_09_checks()
     run_feature_10_checks()
     run_feature_11_checks()
+    run_feature_12_checks()

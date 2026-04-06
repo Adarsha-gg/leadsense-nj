@@ -40,6 +40,14 @@ from leadsense_nj.optimization import OptimizationSummary, optimize_replacement_
 from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.research import run_model_research_benchmark, spatial_kfold_splits
+from leadsense_nj.satellite import (
+    SentinelCacheArtifacts,
+    build_sentinel_feature_cache,
+    ensure_sentinel_feature_cache,
+    fetch_sentinel_features_for_block_groups,
+    search_sentinel2_items,
+    validate_sentinel_feature_frame,
+)
 from leadsense_nj.target import construct_elevated_risk_label, with_elevated_risk_label
 from leadsense_nj.uncertainty import (
     BootstrappedRiskEnsemble,
@@ -61,6 +69,7 @@ __all__ = [
     "build_fusion_feature_table",
     "build_infrastructure_adjacency",
     "build_knn_adjacency",
+    "build_sentinel_feature_cache",
     "build_temporal_features",
     "compute_binary_metrics",
     "compute_linear_contributions",
@@ -73,6 +82,7 @@ __all__ = [
     "fetch_epa_efservice_table",
     "fetch_epa_efservice_table_paged",
     "fit_tabular_logistic",
+    "fetch_sentinel_features_for_block_groups",
     "format_driver_lines",
     "generate_policy_brief",
     "historical_signal_prediction",
@@ -82,9 +92,12 @@ __all__ = [
     "optimize_replacement_plan",
     "optimize_replacement_plan_ilp",
     "ensure_real_data_cache",
+    "ensure_sentinel_feature_cache",
     "IngestionArtifacts",
     "graph_mean_aggregate",
     "run_model_research_benchmark",
+    "search_sentinel2_items",
+    "SentinelCacheArtifacts",
     "spatial_kfold_splits",
     "DemoSnapshot",
     "top_feature_drivers",
@@ -94,5 +107,6 @@ __all__ = [
     "validate_edge_list",
     "validate_acs_block_group_frame",
     "validate_epa_pws_lead_signal_frame",
+    "validate_sentinel_feature_frame",
     "with_elevated_risk_label",
 ]

@@ -63,3 +63,16 @@ def test_train_fusion_model_predicts() -> None:
     assert len(proba) == len(df)
     assert float(proba.min()) >= 0.0
     assert float(proba.max()) <= 1.0
+
+
+def test_fusion_uses_satellite_columns_when_available() -> None:
+    df = with_elevated_risk_label(_sample_df())
+    df["s2_cloud_cover_mean"] = [10, 12, 20, 30, 8, 16]
+    df["s2_vegetation_pct_mean"] = [35, 31, 40, 25, 45, 29]
+    df["s2_water_pct_mean"] = [4, 2, 3, 5, 1, 2]
+    df["s2_nodata_pct_mean"] = [1, 1, 2, 3, 1, 2]
+    df["s2_item_count"] = [2, 2, 2, 2, 2, 2]
+    df["s2_days_since_latest"] = [15, 18, 21, 25, 11, 19]
+    fused = build_fusion_feature_table(df)
+    sat_cols = [c for c in fused.columns if c.startswith("vision_sat_")]
+    assert len(sat_cols) >= 4
