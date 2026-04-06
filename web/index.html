@@ -44,6 +44,7 @@
     <nav class="tabs">
       <button class="tab-btn active" data-tab="tab-map">NJ Risk Map</button>
       <button class="tab-btn" data-tab="tab-detail">Block Detail</button>
+      <button class="tab-btn" data-tab="tab-ai">AI Copilot</button>
       <button class="tab-btn" data-tab="tab-fairness">Fairness Dashboard</button>
       <button class="tab-btn" data-tab="tab-performance">Model Performance</button>
       <button class="tab-btn" data-tab="tab-about">About</button>
@@ -87,6 +88,25 @@
           </div>
         </div>
         <div id="detail-content"></div>
+      </section>
+
+      <section id="tab-ai" class="tab">
+        <div class="panel">
+          <h2>AI Copilot</h2>
+          <p id="ai-status" class="muted"></p>
+          <p class="muted">Selected Area: <span id="ai-selected-geoid">None</span></p>
+          <label class="ai-label" for="ai-question">Ask a question about the selected area</label>
+          <textarea
+            id="ai-question"
+            rows="5"
+            placeholder="Example: Give me a targeted intervention plan for this area with immediate and 12-month actions."
+          ></textarea>
+          <div class="ai-actions">
+            <button id="ai-ask-btn" type="button">Ask AI</button>
+            <button id="ai-brief-btn" type="button">Generate AI Brief</button>
+          </div>
+          <pre id="ai-answer">No AI response yet.</pre>
+        </div>
       </section>
 
       <section id="tab-fairness" class="tab">

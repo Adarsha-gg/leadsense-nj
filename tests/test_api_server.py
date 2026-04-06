@@ -49,3 +49,33 @@ def test_api_dashboard_supports_county_scoping() -> None:
     assert body["row_scope_county"] == "Essex"
     assert body["rows_returned"] <= 200
     assert all(str(row.get("county", "")).lower() == "essex" for row in body["rows"])
+
+
+def test_api_ai_status_and_copilot_fallback(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    client = TestClient(app)
+
+    status = client.get("/api/ai/status")
+    assert status.status_code == 200
+    status_body = status.json()
+    assert status_body["enabled"] is False
+    assert isinstance(status_body["model"], str)
+
+    dash = client.get("/api/dashboard", params={"row_limit": 100})
+    geoid = str(dash.json()["rows"][0]["geoid"])
+    copilot = client.post(
+        "/api/ai/copilot",
+        json={
+            "geoid": geoid,
+            "question": "What actions should NJBDA prioritize for this area?",
+            "budget": 2000000.0,
+            "fairness_tolerance": 0.05,
+            "optimizer_method": "greedy",
+        },
+    )
+    assert copilot.status_code == 200
+    body = copilot.json()
+    assert body["geoid"] == geoid
+    assert body["ai_used"] is False
+    assert isinstance(body["answer"], str)
+    assert len(body["answer"]) > 50

@@ -10,22 +10,36 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI
+from fastapi import HTTPException
 from fastapi import Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from pydantic import Field
 
+from leadsense_nj.ai_assistant import configured_model
+from leadsense_nj.ai_assistant import generate_block_answer
+from leadsense_nj.ai_assistant import is_ai_enabled
 from leadsense_nj.demo import build_demo_snapshot
 from leadsense_nj.metrics import compute_model_vs_historical_metrics
 from leadsense_nj.optimization import optimize_replacement_plan, optimize_replacement_plan_ilp
 from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.research import run_model_research_benchmark
-from leadsense_nj.target import with_elevated_risk_label
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "block_group_features_sample.csv"
 RESEARCH_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "nj_research_features.csv"
 WEB_DIR = PROJECT_ROOT / "web"
+
+
+class AICopilotRequest(BaseModel):
+    geoid: str = Field(min_length=1, max_length=40)
+    question: str = Field(min_length=1, max_length=4000)
+    budget: float = Field(default=2000000.0, ge=10000.0, le=100000000.0)
+    fairness_tolerance: float = Field(default=0.05, ge=0.0, le=1.0)
+    min_county_coverage: int = Field(default=0, ge=0, le=10)
+    optimizer_method: str = Field(default="greedy", pattern="^(ilp|greedy)$")
 
 
 def _risk_band(score: float) -> str:
@@ -409,6 +423,47 @@ def api_health() -> dict[str, str]:
 @app.get("/api/benchmark")
 def api_benchmark() -> dict[str, Any]:
     return build_benchmark_payload()
+
+
+@app.get("/api/ai/status")
+def api_ai_status() -> dict[str, Any]:
+    return {
+        "enabled": bool(is_ai_enabled()),
+        "model": configured_model(),
+    }
+
+
+@app.post("/api/ai/copilot")
+def api_ai_copilot(request: AICopilotRequest) -> dict[str, Any]:
+    payload = _cached_dashboard_payload(
+        budget=float(round(request.budget, 4)),
+        fairness_tolerance=float(round(request.fairness_tolerance, 4)),
+        min_county_coverage=int(request.min_county_coverage),
+        optimizer_method=str(request.optimizer_method),
+    )
+
+    geoid = str(request.geoid).strip()
+    rows = payload.get("rows", [])
+    row = next((item for item in rows if str(item.get("geoid")) == geoid), None)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Area not found for geoid={geoid}")
+
+    selected_geoids = {str(item.get("geoid")) for item in payload.get("selected_rows", [])}
+    fairness_summary = (
+        payload.get("fairness_comparison", {}).get("with_fairness", {}).get("summary", {})
+    )
+    optimization_summary = payload.get("optimization_summary", {})
+    result = generate_block_answer(
+        block_row=row,
+        question=request.question,
+        selected=geoid in selected_geoids,
+        fairness_summary=fairness_summary,
+        optimization_summary=optimization_summary,
+    )
+    return {
+        "geoid": geoid,
+        **result,
+    }
 
 
 @app.get("/api/dashboard")

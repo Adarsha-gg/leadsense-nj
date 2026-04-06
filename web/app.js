@@ -25,6 +25,7 @@ const MAP_ROW_LIMIT = 1200;
 const state = {
   dashboard: null,
   benchmark: null,
+  aiStatus: null,
   selectedGeoid: null,
   sortedRows: [],
   map: null,
@@ -155,6 +156,12 @@ async function fetchBenchmark() {
   const res = await fetch("/api/benchmark");
   if (!res.ok) throw new Error(`benchmark fetch failed: ${res.status}`);
   state.benchmark = await res.json();
+}
+
+async function fetchAIStatus() {
+  const res = await fetch("/api/ai/status");
+  if (!res.ok) throw new Error(`ai status fetch failed: ${res.status}`);
+  state.aiStatus = await res.json();
 }
 
 function ensureMap() {
@@ -360,6 +367,64 @@ function renderDetail() {
       <pre>${brief}</pre>
     </div>
   `;
+  renderAIStatus();
+}
+
+function renderAIStatus() {
+  const statusEl = document.getElementById("ai-status");
+  const selectedEl = document.getElementById("ai-selected-geoid");
+  if (!statusEl || !selectedEl) return;
+  const geoid = state.selectedGeoid || "None";
+  selectedEl.textContent = geoid;
+
+  const enabled = Boolean(state.aiStatus?.enabled);
+  const model = state.aiStatus?.model || "not configured";
+  if (enabled) {
+    statusEl.textContent = `AI enabled. Model: ${model}.`;
+  } else {
+    statusEl.textContent =
+      "AI key not configured; copilot uses deterministic fallback summaries. Set OPENAI_API_KEY to enable LLM responses.";
+  }
+}
+
+function currentCopilotRequest(question) {
+  return {
+    geoid: String(state.selectedGeoid || ""),
+    question: String(question || "").trim(),
+    budget: Number(document.getElementById("budget").value),
+    fairness_tolerance: Number(document.getElementById("fairness").value),
+    min_county_coverage: 0,
+    optimizer_method: String(document.getElementById("optimizer").value),
+  };
+}
+
+async function askAICopilot(question) {
+  const answerEl = document.getElementById("ai-answer");
+  const payload = currentCopilotRequest(question);
+  if (!payload.geoid) {
+    answerEl.textContent = "Select an area first.";
+    return;
+  }
+  if (!payload.question) {
+    answerEl.textContent = "Enter a question first.";
+    return;
+  }
+
+  answerEl.textContent = "Generating answer...";
+  const res = await fetch("/api/ai/copilot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`ai copilot failed: ${res.status} ${errText}`);
+  }
+  const body = await res.json();
+  const mode = body.ai_used ? "LLM" : "Fallback";
+  const model = body.model ? ` (${body.model})` : "";
+  const reason = body.fallback_reason ? `\n\nReason: ${body.fallback_reason}` : "";
+  answerEl.textContent = `[${mode}${model}]\n\n${body.answer}${reason}`;
 }
 
 function renderFairness() {
@@ -482,12 +547,16 @@ async function refreshAll() {
   document.getElementById("budget-label").textContent = fmtMoney(document.getElementById("budget").value);
   document.getElementById("fairness-label").textContent = Number(document.getElementById("fairness").value).toFixed(2);
   await fetchDashboard();
+  if (!state.aiStatus) await fetchAIStatus();
   populateCountyFilter();
   if (!state.benchmark) await fetchBenchmark();
 
   const rows = state.dashboard?.rows || [];
   state.sortedRows = sortedRows(rows);
-  if (!rows.length) return;
+  if (!rows.length) {
+    renderAIStatus();
+    return;
+  }
 
   const exists = rows.some((r) => String(r.geoid) === String(state.selectedGeoid));
   if (!exists) state.selectedGeoid = String(rows[0].geoid);
@@ -521,6 +590,22 @@ function wireEvents() {
   });
   document.getElementById("detail-prev").addEventListener("click", () => selectRelativeArea(-1));
   document.getElementById("detail-next").addEventListener("click", () => selectRelativeArea(1));
+  document.getElementById("ai-ask-btn").addEventListener("click", () => {
+    const question = document.getElementById("ai-question").value;
+    askAICopilot(question).catch((err) => {
+      console.error(err);
+      document.getElementById("ai-answer").textContent = `Failed to get AI response: ${err.message}`;
+    });
+  });
+  document.getElementById("ai-brief-btn").addEventListener("click", () => {
+    const question =
+      "Create a concise policy brief for this selected area with immediate actions (0-3 months), medium-term actions (3-12 months), and key uncertainty/fairness caveats.";
+    document.getElementById("ai-question").value = question;
+    askAICopilot(question).catch((err) => {
+      console.error(err);
+      document.getElementById("ai-answer").textContent = `Failed to get AI response: ${err.message}`;
+    });
+  });
 }
 
 wireEvents();

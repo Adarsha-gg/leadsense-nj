@@ -200,6 +200,47 @@ main {
   cursor: pointer;
 }
 
+.ai-label {
+  display: block;
+  margin: 0.4rem 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+#ai-question {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.6rem;
+  resize: vertical;
+  min-height: 90px;
+  font-family: inherit;
+}
+
+.ai-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.ai-actions button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+}
+
+#ai-answer {
+  margin-top: 0.8rem;
+  background: #f8fbff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem;
+  white-space: pre-wrap;
+  min-height: 120px;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

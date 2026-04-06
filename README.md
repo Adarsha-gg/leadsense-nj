@@ -105,6 +105,15 @@ Then open: `http://127.0.0.1:8000`
 Notes:
 - Dashboard now uses expanded NJ research dataset when available (`data/processed/nj_research_features.csv`).
 - Performance cards show cross-validated metrics from benchmark artifacts.
+- AI Copilot tab supports LLM answers when `OPENAI_API_KEY` is set; otherwise deterministic fallback is used.
+
+Enable AI Copilot:
+
+```bash
+set OPENAI_API_KEY=your_key_here
+set OPENAI_MODEL=gpt-4.1-mini
+python app.py
+```
 
 ## Streamlit App (Legacy)
 
