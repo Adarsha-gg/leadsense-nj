@@ -40,6 +40,11 @@ from leadsense_nj.optimization import OptimizationSummary, optimize_replacement_
 from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.research import run_model_research_benchmark, spatial_kfold_splits
+from leadsense_nj.research_data import (
+    build_nj_research_feature_table,
+    build_research_dataset_from_cache,
+    ensure_research_dataset,
+)
 from leadsense_nj.satellite import (
     SentinelCacheArtifacts,
     build_sentinel_feature_cache,
@@ -96,6 +101,9 @@ __all__ = [
     "IngestionArtifacts",
     "graph_mean_aggregate",
     "run_model_research_benchmark",
+    "build_nj_research_feature_table",
+    "build_research_dataset_from_cache",
+    "ensure_research_dataset",
     "search_sentinel2_items",
     "SentinelCacheArtifacts",
     "spatial_kfold_splits",

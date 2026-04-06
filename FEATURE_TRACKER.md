@@ -226,3 +226,20 @@
 - Verification:
   - `python -m pytest -q` -> `50 passed`
   - `python scripts/run_feature_checks.py` -> `F13 checks passed`
+
+## F14 - Expanded Research Benchmark (Non-Toy)
+
+- Status: `completed`
+- Scope:
+  - NJ-wide research dataset builder from cached ACS (`~6.6k` rows)
+  - Deterministic proxy feature synthesis with injected label noise to reduce toy separability
+  - Benchmark split integrity checks (fold overlap detection)
+  - 5-fold benchmark run on expanded dataset with bounded compute subsampling (`max_rows=2500`)
+  - API benchmark endpoint updated to prefer artifact-backed expanded benchmark results
+- Exit criteria:
+  - `python scripts/build_research_dataset.py` writes expanded dataset
+  - `python scripts/run_research_benchmark.py --dataset data/processed/nj_research_features.csv --n-splits 5 --max-rows 2500` writes artifacts
+  - `python scripts/run_feature_checks.py` passes including F14
+- Verification:
+  - `python -m pytest -q` -> `51 passed`
+  - `python scripts/run_feature_checks.py` -> `F14 checks passed`

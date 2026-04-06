@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +14,7 @@ from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.research import run_model_research_benchmark
 
 
-def _to_markdown(report: dict) -> str:
+def _to_markdown(report: dict, *, dataset_path: str) -> str:
     h = report["historical"]["accuracy"]["mean"]
     f = report["fusion"]["accuracy"]["mean"]
     g = report["graph"]["accuracy"]["mean"]
@@ -38,7 +39,10 @@ def _to_markdown(report: dict) -> str:
         "# LeadSense Research Benchmark",
         "",
         f"- Generated at: `{datetime.now().isoformat(timespec='seconds')}`",
+        f"- Dataset: `{dataset_path}`",
+        f"- Rows used: `{report.get('n_rows')}`",
         f"- Folds: `{report['n_folds']}`",
+        f"- Fold overlap count: `{report.get('split_integrity', {}).get('fold_overlap_count', 'n/a')}`",
         "",
         "## Accuracy (Mean +/- Std)",
         "",
@@ -67,8 +71,35 @@ def _to_markdown(report: dict) -> str:
 
 
 def main() -> int:
-    df = build_feature_table()
-    report = run_model_research_benchmark(df, n_splits=3, threshold=0.5, random_state=42)
+    parser = argparse.ArgumentParser(description="Run LeadSense benchmark and write JSON/Markdown artifacts.")
+    parser.add_argument(
+        "--dataset",
+        default="data/processed/nj_research_features.csv",
+        help="Input CSV dataset for benchmark.",
+    )
+    parser.add_argument("--n-splits", type=int, default=5)
+    parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--random-state", type=int, default=42)
+    parser.add_argument(
+        "--max-rows",
+        type=int,
+        default=2500,
+        help="Optional subsample size for compute-bounded runs; set <=0 for full dataset.",
+    )
+    args = parser.parse_args()
+
+    dataset_path = Path(args.dataset)
+    if not dataset_path.exists():
+        dataset_path = Path("data/processed/block_group_features_sample.csv")
+    df = build_feature_table(dataset_path)
+    max_rows = args.max_rows if args.max_rows and args.max_rows > 0 else None
+    report = run_model_research_benchmark(
+        df,
+        n_splits=args.n_splits,
+        threshold=args.threshold,
+        random_state=args.random_state,
+        max_rows=max_rows,
+    )
 
     out_dir = Path("artifacts") / "research"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +107,7 @@ def main() -> int:
     md_path = out_dir / "benchmark_results.md"
 
     json_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    md_path.write_text(_to_markdown(report), encoding="utf-8")
+    md_path.write_text(_to_markdown(report, dataset_path=str(dataset_path)), encoding="utf-8")
     print(f"Wrote: {json_path}")
     print(f"Wrote: {md_path}")
     return 0

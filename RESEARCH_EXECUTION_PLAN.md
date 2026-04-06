@@ -18,6 +18,7 @@ This plan converts the technical spec into an evidence-first workflow where ever
 - Fairness-aware optimizer (greedy + ILP)
 - Ablation benchmark table across six model variants
 - Research benchmark runner and artifact writer
+- Expanded benchmark dataset path (`data/processed/nj_research_features.csv`) with split-integrity checks
 
 Run:
 
@@ -75,6 +76,8 @@ Artifacts:
 
 ### Phase E: Publication-Grade Evaluation
 
-- Expand spatial CV to 5 folds on full NJ dataset.
-- Add calibration plots, fairness tradeoff curves, and optimizer sensitivity.
-- Add reproducible result tables ready for poster/paper.
+- Completed:
+  - 5-fold benchmark run path with non-toy dataset and overlap checks
+- Remaining:
+  - Calibration plots, fairness tradeoff curves, and optimizer sensitivity figures
+  - Final poster/paper-ready result tables from true ground-truth labels

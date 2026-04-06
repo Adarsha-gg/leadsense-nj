@@ -20,6 +20,7 @@ from leadsense_nj.optimization import optimize_replacement_plan, optimize_replac
 from leadsense_nj.policy_brief import generate_policy_brief
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.research import run_model_research_benchmark
+from leadsense_nj.research_data import ensure_research_dataset
 from leadsense_nj.satellite import ensure_sentinel_feature_cache, validate_sentinel_feature_frame
 from leadsense_nj.target import with_elevated_risk_label
 from leadsense_nj.uncertainty import expected_calibration_error, train_bootstrap_ensemble
@@ -345,6 +346,38 @@ def run_feature_13_checks() -> None:
     print(f"Ablation rows: {len(benchmark['ablation_accuracy_table'])}")
 
 
+def run_feature_14_checks() -> None:
+    dataset_path = ensure_research_dataset(
+        acs_cache_path=PROJECT_ROOT / "data" / "cache" / "acs_nj_block_groups_2022.csv",
+        out_path=PROJECT_ROOT / "data" / "processed" / "nj_research_features.csv",
+        refresh=False,
+        seed=42,
+    )
+    df = build_feature_table(dataset_path)
+    report = run_model_research_benchmark(
+        df,
+        n_splits=5,
+        threshold=0.5,
+        random_state=42,
+        max_rows=2500,
+    )
+    if report.get("n_rows", 0) < 1000:
+        raise RuntimeError("F14 failed: benchmark used too few rows for research evaluation.")
+    if report.get("split_integrity", {}).get("fold_overlap_count", 1) != 0:
+        raise RuntimeError("F14 failed: fold overlap detected in split integrity check.")
+
+    fusion_acc = float(report["fusion"]["accuracy"]["mean"])
+    if fusion_acc >= 0.99:
+        raise RuntimeError("F14 failed: unrealistically perfect accuracy remains in expanded benchmark.")
+    if fusion_acc <= 0.50:
+        raise RuntimeError("F14 failed: fusion accuracy collapsed below acceptable floor.")
+
+    print("F14 checks passed.")
+    print(f"Research rows used: {report['n_rows']}")
+    print(f"Fusion accuracy mean: {fusion_acc:.3f}")
+    print(f"Graph accuracy mean: {report['graph']['accuracy']['mean']:.3f}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
@@ -359,3 +392,4 @@ if __name__ == "__main__":
     run_feature_11_checks()
     run_feature_12_checks()
     run_feature_13_checks()
+    run_feature_14_checks()

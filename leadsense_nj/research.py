@@ -27,6 +27,58 @@ class FoldResult:
     graph_infrastructure: BinaryClassificationMetrics
 
 
+def _subsample_for_benchmark(
+    df: pd.DataFrame,
+    *,
+    label_col: str,
+    max_rows: int | None,
+    random_state: int,
+) -> pd.DataFrame:
+    if max_rows is None or len(df) <= max_rows:
+        return df.reset_index(drop=True)
+    if max_rows < 10:
+        raise ValueError("max_rows must be >= 10 when provided.")
+
+    work = df.copy()
+    y = pd.to_numeric(work[label_col], errors="raise").astype(int)
+    rng = np.random.default_rng(random_state)
+    selected_idx: list[int] = []
+    for cls in sorted(y.unique().tolist()):
+        cls_idx = np.where(y.to_numpy() == cls)[0]
+        n_take = max(1, int(round(max_rows * (len(cls_idx) / len(work)))))
+        n_take = min(n_take, len(cls_idx))
+        take = rng.choice(cls_idx, size=n_take, replace=False)
+        selected_idx.extend(take.tolist())
+    if len(selected_idx) < max_rows:
+        remaining = sorted(set(range(len(work))).difference(selected_idx))
+        add_n = min(max_rows - len(selected_idx), len(remaining))
+        selected_idx.extend(rng.choice(np.array(remaining), size=add_n, replace=False).tolist())
+    sampled = work.iloc[sorted(set(selected_idx))].copy()
+    if len(sampled) > max_rows:
+        sampled = sampled.sample(n=max_rows, random_state=random_state)
+    return sampled.reset_index(drop=True)
+
+
+def _validate_split_integrity(
+    df: pd.DataFrame,
+    splits: list[tuple[np.ndarray, np.ndarray]],
+    *,
+    id_col: str = "geoid",
+) -> dict[str, int]:
+    if id_col not in df.columns:
+        return {"fold_overlap_count": 0, "rows_covered": 0}
+
+    overlap_count = 0
+    covered = set()
+    ids = df[id_col].astype(str).to_numpy()
+    for train_idx, test_idx in splits:
+        train_ids = set(ids[train_idx].tolist())
+        test_ids = set(ids[test_idx].tolist())
+        overlap_count += len(train_ids.intersection(test_ids))
+        covered.update(test_ids)
+    return {"fold_overlap_count": int(overlap_count), "rows_covered": int(len(covered))}
+
+
 def _resolve_spatial_clusters(df: pd.DataFrame, n_splits: int, random_state: int = 42) -> np.ndarray:
     if {"lat", "lon"}.issubset(df.columns):
         coords = df[["lat", "lon"]].copy()
@@ -73,11 +125,19 @@ def run_model_research_benchmark(
     n_splits: int = 3,
     threshold: float = 0.5,
     random_state: int = 42,
+    max_rows: int | None = None,
 ) -> dict:
-    labeled = with_elevated_risk_label(df)
+    labeled = with_elevated_risk_label(df) if "risk_label" not in df.columns else df.copy()
+    labeled = _subsample_for_benchmark(
+        labeled,
+        label_col="risk_label",
+        max_rows=max_rows,
+        random_state=random_state,
+    )
     splits = spatial_kfold_splits(labeled, n_splits=n_splits, random_state=random_state)
     if not splits:
         raise RuntimeError("Unable to build valid CV splits.")
+    split_integrity = _validate_split_integrity(labeled, splits, id_col="geoid")
 
     fold_results: list[FoldResult] = []
     for fold_id, (train_idx, test_idx) in enumerate(splits):
@@ -178,6 +238,9 @@ def run_model_research_benchmark(
 
     summary = {
         "n_folds": len(fold_results),
+        "n_rows": int(len(labeled)),
+        "max_rows": int(max_rows) if max_rows is not None else None,
+        "split_integrity": split_integrity,
         "historical": {
             "accuracy": pack_metric("accuracy", lambda fr: fr.historical.accuracy),
             "precision": pack_metric("precision", lambda fr: fr.historical.precision),

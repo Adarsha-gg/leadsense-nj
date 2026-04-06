@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from dataclasses import is_dataclass
 from functools import lru_cache
+import json
 from pathlib import Path
 from typing import Any
 
@@ -174,8 +175,25 @@ def build_dashboard_payload(
 
 @lru_cache(maxsize=1)
 def build_benchmark_payload() -> dict[str, Any]:
-    df = build_feature_table(DEFAULT_DATA_PATH)
-    report = run_model_research_benchmark(df, n_splits=3, threshold=0.5, random_state=42)
+    artifact_path = PROJECT_ROOT / "artifacts" / "research" / "benchmark_results.json"
+    if artifact_path.exists():
+        try:
+            report = json.loads(artifact_path.read_text(encoding="utf-8"))
+            if isinstance(report, dict) and "ablation_accuracy_table" in report:
+                return _normalize_value(report)
+        except Exception:
+            pass
+
+    research_path = PROJECT_ROOT / "data" / "processed" / "nj_research_features.csv"
+    dataset_path = research_path if research_path.exists() else DEFAULT_DATA_PATH
+    df = build_feature_table(dataset_path)
+    report = run_model_research_benchmark(
+        df,
+        n_splits=5 if len(df) >= 1000 else 3,
+        threshold=0.5,
+        random_state=42,
+        max_rows=2500 if len(df) > 2500 else None,
+    )
     return _normalize_value(report)
 
 

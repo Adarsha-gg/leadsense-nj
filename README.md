@@ -39,12 +39,20 @@ Runs spatial cross-validation comparing:
 - Graph-enhanced model
 
 ```bash
-python scripts/run_research_benchmark.py
+python scripts/run_research_benchmark.py --dataset data/processed/nj_research_features.csv --n-splits 5 --max-rows 2500
 ```
 
 Outputs:
 - `artifacts/research/benchmark_results.json`
 - `artifacts/research/benchmark_results.md`
+
+## Expanded Research Dataset (F14)
+
+Builds an NJ-wide benchmark dataset from ACS cache:
+
+```bash
+python scripts/build_research_dataset.py --acs-cache data/cache/acs_nj_block_groups_2022.csv --out data/processed/nj_research_features.csv --seed 42
+```
 
 ## Infrastructure Graph Edges (F11)
 
