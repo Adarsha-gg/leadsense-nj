@@ -33,7 +33,18 @@
 
 ## F03 - Baseline Predictor
 
-- Status: `pending`
+- Status: `completed`
+- Scope:
+  - In-repo logistic baseline model (NumPy) with feature standardization
+  - Probability prediction and thresholded classification
+  - Loss tracking and guardrails for binary labels
+  - Feature-check integration for training loss and accuracy
+- Exit criteria:
+  - `python -m pytest -q` passes
+  - `python scripts/run_feature_checks.py` passes
+- Verification:
+  - `python -m pytest -q` -> `11 passed`
+  - `python scripts/run_feature_checks.py` -> `F03 checks passed`
 
 ## F04 - Uncertainty Layer
 

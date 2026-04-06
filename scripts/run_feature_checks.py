@@ -8,6 +8,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from leadsense_nj.config import DataConfig
+from leadsense_nj.baseline import fit_tabular_logistic
 from leadsense_nj.preprocessing import build_feature_table
 from leadsense_nj.target import with_elevated_risk_label
 
@@ -38,6 +39,26 @@ def run_feature_02_checks() -> None:
     print(f"Positive label prevalence: {prevalence:.3f}")
 
 
+def run_feature_03_checks() -> None:
+    df = with_elevated_risk_label(build_feature_table())
+    model, losses = fit_tabular_logistic(df, epochs=600, learning_rate=0.1)
+    if losses[-1] >= losses[0]:
+        raise RuntimeError("F03 failed: training loss did not decrease.")
+
+    proba = model.predict_proba(df)
+    if not ((proba >= 0.0) & (proba <= 1.0)).all():
+        raise RuntimeError("F03 failed: model produced out-of-bound probabilities.")
+
+    preds = model.predict(df)
+    accuracy = float((preds == df["risk_label"]).mean())
+    if accuracy < 0.65:
+        raise RuntimeError(f"F03 failed: training accuracy too low ({accuracy:.3f}).")
+
+    print("F03 checks passed.")
+    print(f"Training accuracy: {accuracy:.3f}")
+
+
 if __name__ == "__main__":
     run_feature_01_checks()
     run_feature_02_checks()
+    run_feature_03_checks()
