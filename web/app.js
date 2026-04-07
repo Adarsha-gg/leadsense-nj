@@ -60,6 +60,7 @@ const state = {
   dashboard: null,
   benchmark: null,
   aiStatus: null,
+  aiPatterns: null,
   selectedGeoid: null,
   sortedRows: [],
   map: null,
@@ -753,6 +754,169 @@ Top selected areas:
 ${topRowsText || "No rows selected."}${reason}`;
 }
 
+function renderAIPatternCards(payload) {
+  const cardsEl = document.getElementById("ai-patterns-cards");
+  if (!cardsEl) return;
+  const summary = payload?.summary || {};
+  cardsEl.innerHTML = `
+    <div class="card"><div class="label">Rows Analyzed</div><div class="value">${Number(payload?.rows_analyzed || 0)}</div></div>
+    <div class="card"><div class="label">Clusters</div><div class="value">${Number(summary.cluster_count || 0)}</div></div>
+    <div class="card"><div class="label">Outliers</div><div class="value">${Number(summary.outlier_count || 0)}</div></div>
+    <div class="card"><div class="label">Rising Risk Areas</div><div class="value">${Number(summary.watchlist_count || 0)}</div></div>
+    <div class="card"><div class="label">Avg Scope Risk</div><div class="value">${fmtPct(summary.avg_scope_risk)}</div></div>
+  `;
+}
+
+function renderAIPatternTables(payload) {
+  const hotspotChartEl = document.getElementById("ai-hotspot-chart");
+  const hotspotTableEl = document.getElementById("ai-hotspot-table");
+  const outlierTableEl = document.getElementById("ai-outlier-table");
+  const watchlistTableEl = document.getElementById("ai-watchlist-table");
+  if (!hotspotChartEl || !hotspotTableEl || !outlierTableEl || !watchlistTableEl) return;
+
+  const clusters = payload?.hotspot_clusters || [];
+  const outliers = payload?.outliers || [];
+  const watchlist = payload?.rising_watchlist || [];
+
+  hotspotChartEl.innerHTML = barChartHtml(
+    clusters.slice(0, 10).map((row) => ({
+      label: `Cluster ${row.cluster_id}`,
+      value: Number(row.hotspot_score || 0),
+      display: fmtPct(row.avg_risk),
+    })),
+  );
+
+  hotspotTableEl.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Cluster</th>
+          <th>Size</th>
+          <th>Dominant County</th>
+          <th>Avg Risk</th>
+          <th>Avg Uncertainty</th>
+          <th>Avg Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${
+          clusters
+            .map(
+              (row) => `
+                <tr>
+                  <td>${row.cluster_id}</td>
+                  <td>${row.size}</td>
+                  <td>${row.dominant_county}</td>
+                  <td>${fmtPct(row.avg_risk)}</td>
+                  <td>${Number(row.avg_uncertainty || 0).toFixed(3)}</td>
+                  <td>${fmtMoney(row.avg_cost)}</td>
+                </tr>
+              `,
+            )
+            .join("") || '<tr><td colspan="6">No hotspot clusters found.</td></tr>'
+        }
+      </tbody>
+    </table>
+  `;
+
+  outlierTableEl.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>County</th>
+          <th>Area</th>
+          <th>Risk</th>
+          <th>Uncertainty</th>
+          <th>Anomaly Score</th>
+          <th>Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${
+          outliers
+            .map(
+              (row) => `
+                <tr>
+                  <td>${row.county}</td>
+                  <td>${row.municipality || row.geoid}</td>
+                  <td>${fmtPct(row.risk_score)}</td>
+                  <td>${Number(row.risk_uncertainty || 0).toFixed(3)}</td>
+                  <td>${Number(row.anomaly_score || 0).toFixed(3)}</td>
+                  <td>${fmtMoney(row.replacement_cost)}</td>
+                </tr>
+              `,
+            )
+            .join("") || '<tr><td colspan="6">No outliers detected.</td></tr>'
+        }
+      </tbody>
+    </table>
+  `;
+
+  watchlistTableEl.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>County</th>
+          <th>Area</th>
+          <th>Risk</th>
+          <th>Trend Slope</th>
+          <th>Uncertainty</th>
+          <th>Alert Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${
+          watchlist
+            .map(
+              (row) => `
+                <tr>
+                  <td>${row.county}</td>
+                  <td>${row.municipality || row.geoid}</td>
+                  <td>${fmtPct(row.risk_score)}</td>
+                  <td>${Number(row.trend_slope_ppb_per_q || 0).toFixed(3)} ppb/q</td>
+                  <td>${Number(row.risk_uncertainty || 0).toFixed(3)}</td>
+                  <td>${Number(row.trend_alert_score || 0).toFixed(3)}</td>
+                </tr>
+              `,
+            )
+            .join("") || '<tr><td colspan="6">No rising-risk watchlist rows.</td></tr>'
+        }
+      </tbody>
+    </table>
+  `;
+}
+
+async function runAIPatternMining() {
+  const statusEl = document.getElementById("ai-patterns-status");
+  const county = document.getElementById("county-filter")?.value || "all";
+  statusEl.textContent = "Running AI pattern mining...";
+  const payload = {
+    budget: Number(document.getElementById("budget").value),
+    fairness_tolerance: Number(document.getElementById("fairness").value),
+    min_county_coverage: 0,
+    optimizer_method: String(document.getElementById("optimizer").value),
+    county,
+    row_limit: 3000,
+    max_clusters: 8,
+    max_outliers: 15,
+    max_watchlist: 15,
+  };
+  const res = await fetch("/api/ai/patterns", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`ai patterns failed: ${res.status} ${errText}`);
+  }
+  const body = await res.json();
+  state.aiPatterns = body;
+  renderAIPatternCards(body);
+  renderAIPatternTables(body);
+  statusEl.textContent = `AI pattern mining complete (${body.rows_analyzed} rows, scope: ${body.county_scope}).`;
+}
+
 function renderFairness() {
   const fair = state.dashboard?.fairness_comparison;
   if (!fair) return;
@@ -959,6 +1123,12 @@ function wireEvents() {
     designAIPortfolio(goal).catch((err) => {
       console.error(err);
       document.getElementById("ai-portfolio-output").textContent = `Failed to design AI portfolio: ${err.message}`;
+    });
+  });
+  document.getElementById("ai-patterns-btn").addEventListener("click", () => {
+    runAIPatternMining().catch((err) => {
+      console.error(err);
+      document.getElementById("ai-patterns-status").textContent = `Failed to run AI pattern mining: ${err.message}`;
     });
   });
 }

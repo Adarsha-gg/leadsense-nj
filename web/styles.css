@@ -173,7 +173,8 @@ main {
 }
 
 #county-risk-bars,
-#perf-bar-chart {
+#perf-bar-chart,
+#ai-hotspot-chart {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;

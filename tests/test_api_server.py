@@ -101,3 +101,27 @@ def test_api_ai_portfolio_fallback(monkeypatch) -> None:
     assert len(body["selected_rows"]) > 0
     assert "objective_profile" in body
     assert "portfolio_delta" in body
+
+
+def test_api_ai_patterns_endpoint() -> None:
+    client = TestClient(app)
+    resp = client.post(
+        "/api/ai/patterns",
+        json={
+            "budget": 2000000.0,
+            "fairness_tolerance": 0.05,
+            "optimizer_method": "greedy",
+            "county": "all",
+            "row_limit": 1000,
+            "max_clusters": 6,
+            "max_outliers": 10,
+            "max_watchlist": 10,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["rows_analyzed"] > 0
+    assert "summary" in body
+    assert "hotspot_clusters" in body
+    assert "outliers" in body
+    assert "rising_watchlist" in body

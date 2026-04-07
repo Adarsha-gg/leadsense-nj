@@ -108,6 +108,7 @@ Notes:
 - AI Copilot tab supports:
   - area-level Q&A and policy brief generation
   - AI Portfolio Designer: converts a natural-language policy goal into objective weights/constraints and generates a replacement portfolio with baseline deltas
+  - AI Pattern Mining: hotspot clustering, anomaly detection, and rising-trend watchlist for early warning
   Both use LLM responses when `OPENAI_API_KEY` is set; otherwise deterministic fallback is used.
 
 Enable AI Copilot:

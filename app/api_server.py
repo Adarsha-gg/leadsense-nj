@@ -21,6 +21,7 @@ from leadsense_nj.ai_assistant import configured_model
 from leadsense_nj.ai_assistant import generate_block_answer
 from leadsense_nj.ai_assistant import generate_portfolio_objective
 from leadsense_nj.ai_assistant import is_ai_enabled
+from leadsense_nj.ai_patterns import build_ai_patterns
 from leadsense_nj.demo import build_demo_snapshot
 from leadsense_nj.metrics import compute_model_vs_historical_metrics
 from leadsense_nj.optimization import optimize_replacement_plan, optimize_replacement_plan_ilp
@@ -50,6 +51,18 @@ class AIPortfolioRequest(BaseModel):
     min_county_coverage: int = Field(default=0, ge=0, le=10)
     optimizer_method: str = Field(default="greedy", pattern="^(ilp|greedy)$")
     county: str = Field(default="all", max_length=100)
+
+
+class AIPatternsRequest(BaseModel):
+    budget: float = Field(default=2000000.0, ge=10000.0, le=100000000.0)
+    fairness_tolerance: float = Field(default=0.05, ge=0.0, le=1.0)
+    min_county_coverage: int = Field(default=0, ge=0, le=10)
+    optimizer_method: str = Field(default="greedy", pattern="^(ilp|greedy)$")
+    county: str = Field(default="all", max_length=100)
+    row_limit: int = Field(default=3000, ge=200, le=7000)
+    max_clusters: int = Field(default=8, ge=2, le=12)
+    max_outliers: int = Field(default=15, ge=5, le=50)
+    max_watchlist: int = Field(default=15, ge=5, le=50)
 
 
 def _risk_band(score: float) -> str:
@@ -618,6 +631,35 @@ def api_ai_portfolio(request: AIPortfolioRequest) -> dict[str, Any]:
             ),
             "overlap_rate_with_baseline": overlap_rate,
         },
+    }
+
+
+@app.post("/api/ai/patterns")
+def api_ai_patterns(request: AIPatternsRequest) -> dict[str, Any]:
+    payload = _cached_dashboard_payload(
+        budget=float(round(request.budget, 4)),
+        fairness_tolerance=float(round(request.fairness_tolerance, 4)),
+        min_county_coverage=int(request.min_county_coverage),
+        optimizer_method=str(request.optimizer_method),
+    )
+    county_filter = str(request.county or "all").strip()
+    county_filter = county_filter if county_filter and county_filter.lower() != "all" else None
+    scoped = _apply_row_scope(payload, county=county_filter, row_limit=int(request.row_limit))
+    rows = scoped.get("rows", [])
+    if not rows:
+        raise HTTPException(status_code=400, detail="No rows available for AI pattern mining in this scope.")
+
+    df = pd.DataFrame(rows)
+    patterns = build_ai_patterns(
+        df,
+        max_clusters=int(request.max_clusters),
+        max_outliers=int(request.max_outliers),
+        max_watchlist=int(request.max_watchlist),
+    )
+    return {
+        "county_scope": county_filter or "all",
+        "rows_analyzed": int(len(df)),
+        **_normalize_value(patterns),
     }
 
 
